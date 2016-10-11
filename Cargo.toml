@@ -1,0 +1,8 @@
+[package]
+name = "vcdim"
+version = "0.1.0"
+authors = ["local@localhost <local@localhost>"]
+
+[dependencies]
+rand = "0.3"
+polygon = { path = "../polygon" }
