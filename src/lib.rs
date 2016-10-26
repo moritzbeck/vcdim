@@ -59,6 +59,8 @@ impl VcDim {
             // TODO?: remove recursion
         }
         self._vc_dimension_cache = RefCell::new(None);
+        // The follwing lines are needed because of
+        // an assumption by _calculate_visibility.
         for v in &mut self.visible.iter_mut() {
             for e in &mut v.iter_mut() {
                 *e = true;
@@ -272,7 +274,7 @@ impl IpeExport for VcDim {
 <path fill="blue">-1.8 -1.8 m 1.8 -1.8 l 1.8 1.8 l -1.8 1.8 l h</path>
 </symbol>
 <symbol name="vc-point(s)" transformations="translations">
-<path fill="sym-stroke"> -1.8 -1.8 m 1.8 -1.8 l 1.8 1.8 l -1.8 1.8 l h</path>
+<path fill="sym-stroke">-1.8 -1.8 m 1.8 -1.8 l 1.8 1.8 l -1.8 1.8 l h</path>
 </symbol>
 <color name="red" value="1 0 0"/>
 <color name="green" value="0 1 0"/>
@@ -322,14 +324,11 @@ impl IpeImport for VcDim {
         // TODO?: should this also import the shattered subset?
         let mut file_contents = String::new();
         try!(r.read_to_string(&mut file_contents));
-        // 608
-        //println!("{}", &file_contents[608..1000]);
-        if let Some(idx_start) = file_contents.find("<path>") {
+        if let Some(idx_start) = file_contents.find("<path>") { //TODO: make more robust by allowing attrs on path element
             let idx_start = idx_start + 6; // 6 == "<path>".len()
             if let Some(idx_end) = file_contents[idx_start..].find("</path>") {
                 // all points are listed between indices idx_start and idx_end
                 let points_str = &file_contents[idx_start..(idx_start+idx_end)].trim();
-                //println!("{}", points_str);
                 assert_eq!(&points_str[points_str.len()-1..], "h");
                 if let Some(idx) = points_str.rfind('l') { // chop off last 'l'
                     let points = points_str[..idx].split(|c| c == 'l' || c == 'm')
