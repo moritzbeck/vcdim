@@ -76,7 +76,7 @@ impl VcDim {
         while tangled {
             tangled = false;
             let l1 = Line::new(points[len-1], points[0]);
-            for j in 1..len-1 {
+            for j in 1..len-2 {
                 let l2 = Line::new(points[j], points[j+1]);
                 if l1.intersects(&l2) {
                     points.swap(0, j);
