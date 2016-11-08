@@ -8,13 +8,17 @@ use rand::distributions::{IndependentSample, Range};
 
 #[derive(Debug)]
 pub struct VcDim {
-    polygon: Polygon,
-    visible: Vec<Vec<bool>>,
+    /// The polygon of which the VC dimension is considered.
+    pub polygon: Polygon,
+    /// Visibility matrix of the polygon.
+    /// The boolean `visible[i][j]` is true iff `points[i]` sees `points[j]`.
+    pub visible: Vec<Vec<bool>>,
     _vc_dimension_cache: RefCell<Option<(u8, Vec<usize>)>>
 }
 impl VcDim {
     pub fn new(p: Polygon) -> VcDim {
         assert!(p.size() >= 3);
+        assert!(p.is_simple());
         let mut vis = Vec::with_capacity(p.size());
         for _ in 0..p.size() {
             vis.push(vec![true; p.size()]);
@@ -59,8 +63,8 @@ impl VcDim {
             // TODO?: remove recursion
         }
         self._vc_dimension_cache = RefCell::new(None);
-        // The follwing lines are needed because of
-        // an assumption by _calculate_visibility.
+        // The following lines are needed because of
+        // an assumption by `_calculate_visibility`.
         for v in &mut self.visible.iter_mut() {
             for e in &mut v.iter_mut() {
                 *e = true;
@@ -168,7 +172,7 @@ impl VcDim {
     pub fn points(&self) -> &[Point] {
         self.polygon.points()
     }
-    fn _edge_tuples<'a>(&self, size: usize) -> SubsetIter {
+    fn _edge_tuples(&self, size: usize) -> SubsetIter {
         assert!(self.polygon.size() >= size);
         SubsetIter {
             size: size,
@@ -244,6 +248,7 @@ impl Iterator for SubsetIter {
             },
             SubSetIterState::Subset(ref mut v) => {
                 for i in (0..v.len()).rev() {
+                    debug_assert!(v[i] <= self.max + i + 1 - v.len());
                     if v[i] == self.max + i + 1 - v.len() {
                         //println!("maxed: v[{}] = {}", i, v[i]);
                         continue;
@@ -264,7 +269,7 @@ impl Iterator for SubsetIter {
 }
 
 pub trait IpeExport {
-    fn export_ipe<W: Write>(&self, mut w: W, scale: f64) -> std::io::Result<()>;
+    fn export_ipe<W: Write>(&self, w: W, scale: f64) -> std::io::Result<()>;
 }
 impl IpeExport for VcDim {
     fn export_ipe<W: Write>(&self, mut w: W, scale: f64) -> std::io::Result<()> {
@@ -317,7 +322,7 @@ impl From<std::io::Error> for IpeImportError {
     }
 }
 pub trait IpeImport {
-    fn import_ipe<R: Read>(mut r: R, scale: f64) -> Result<VcDim, IpeImportError>;
+    fn import_ipe<R: Read>(r: R, scale: f64) -> Result<VcDim, IpeImportError>;
 }
 impl IpeImport for VcDim {
     fn import_ipe<R: Read>(mut r: R, scale: f64) -> Result<VcDim, IpeImportError> {
