@@ -180,7 +180,33 @@ impl VcDim {
             state: SubSetIterState::New
         }
     }
-    fn _compute_vc_dimension(&self) -> (u8, Vec<usize>) {
+    fn _edge_tuples_from_previous_set(&self, set: Vec<usize>) -> SubsetIter {
+        assert!(self.polygon.size() >= set.len() + 1);
+        let max = self.polygon.size() - 1;
+        let len = set.len();
+        if len == 0 || set[len-1] == len-1 {
+            return SubsetIter {
+                size: len + 1,
+                max: max,
+                state: SubSetIterState::New
+            };
+        }
+        let mut set = set;
+        set[len - 1] -= 1;
+        for i in (0..len-1).rev() {
+            if set[i] == set[i+1] {
+                set[i] -= 1;
+                set[i+1] = max + i + 1 - len; //max for this position
+            }
+        }
+        set.push(max);
+        SubsetIter {
+            size: len + 1,
+            max: max,
+            state: SubSetIterState::Subset(set)
+        }
+    }
+    fn _compute_vc_dimension_naive(&self) -> (u8, Vec<usize>) {
         if let Some((dim, ref subset)) = *self._vc_dimension_cache.borrow() {
             return (dim, subset.to_vec()); // clone subset
         }
@@ -196,6 +222,37 @@ impl VcDim {
                 break; // more nodes needed to achieve this vc_dim
             }
             for subset in self._edge_tuples(subset_size) {
+                if self._is_shattered(&subset[..]) {
+                    shatterable = true;
+                    vc_dim = subset_size;
+                    shattered_subset = subset;
+                    break;
+                }
+            }
+            subset_size += 1;
+        }
+        let vc = (vc_dim as u8, shattered_subset.to_vec()); // copy shattered_subset
+        let mut cache = self._vc_dimension_cache.borrow_mut(); // TODO: change to try_borrow_mut; but this function is unstable
+        *cache = Some(vc);
+
+        (vc_dim as u8, shattered_subset)
+    }
+    fn _compute_vc_dimension(&self) -> (u8, Vec<usize>) {
+        if let Some((dim, ref subset)) = *self._vc_dimension_cache.borrow() {
+            return (dim, subset.to_vec()); // clone subset
+        }
+        if self.polygon.size() <= 3 { return (0, Vec::new()); }
+        let mut vc_dim = 0;
+        let mut shatterable = true;
+        let mut subset_size = 1;
+        let mut shattered_subset = Vec::new();
+        while shatterable {
+            assert_eq!(vc_dim +1, subset_size);
+            shatterable = false;
+            if 1 << subset_size > self.polygon.size() {
+                break; // more nodes needed to achieve this vc_dim
+            }
+            for subset in self._edge_tuples_from_previous_set(shattered_subset.to_vec()) { //copy shattered_subset
                 if self._is_shattered(&subset[..]) {
                     shatterable = true;
                     vc_dim = subset_size;
