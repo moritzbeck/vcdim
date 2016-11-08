@@ -1,3 +1,9 @@
+//#![warn(missing_docs)]
+#![cfg_attr(feature = "bench", feature(test))]
+
+#[cfg(all(feature = "bench", test))]
+extern crate test;
+
 extern crate polygon;
 extern crate rand;
 
@@ -493,5 +499,112 @@ mod tests {
         assert!(v._is_shattered(&[1, 4]));
         assert!(v._is_shattered(&[2]));
         // TODO: add tests
+    }
+    #[test]
+    fn _edge_tuples_from_previous_set_works() {
+        for size in 10..20 {
+            let v = VcDim::with_random_polygon(size); // TODO: deterministic polygon to save time (only size of polygon is needed)
+            let m = size - 1; //max index
+            assert_eq!(Some(vec![0]), v._edge_tuples_from_previous_set(vec![]).next());
+            assert_eq!(Some(vec![0,1]), v._edge_tuples_from_previous_set(vec![0]).next());
+            assert_eq!(Some(vec![1,2]), v._edge_tuples_from_previous_set(vec![1]).next());
+            assert_eq!(Some(vec![m-1, m]), v._edge_tuples_from_previous_set(vec![m-1]).next());
+            assert_eq!(None, v._edge_tuples_from_previous_set(vec![m]).next());
+            assert_eq!(Some(vec![1,2,3]), v._edge_tuples_from_previous_set(vec![1,2]).next());
+            assert_eq!(Some(vec![1,5,6]), v._edge_tuples_from_previous_set(vec![1,5]).next());
+            assert_eq!(None, v._edge_tuples_from_previous_set(vec![m-2,m]).next());
+            assert_eq!(Some(vec![1,5,6,7]), v._edge_tuples_from_previous_set(vec![1,5,6]).next());
+            assert_eq!(Some(vec![2,3,4,5]), v._edge_tuples_from_previous_set(vec![1,m-1,m]).next());
+            assert_eq!(Some(vec![2,3,4,5,6]), v._edge_tuples_from_previous_set(vec![1,m-2,m-1,m]).next());
+            assert_eq!(Some(vec![2,3,4,5,6]), v._edge_tuples_from_previous_set(vec![1,m-3,m-2,m]).next());
+            assert_eq!(Some(vec![1,m-3,m-2,m-1,m]), v._edge_tuples_from_previous_set(vec![1,m-3,m-2,m-1]).next());
+        }
+    }
+    #[test]
+    fn _compute_vc_dimension_fns_are_equal() {
+        for size in 3..20 {
+            for _ in 0..10 {
+                let v = VcDim::with_random_polygon(size);
+                let dim1 = v._compute_vc_dimension_naive();
+                let dim2 = v._compute_vc_dimension();
+                assert_eq!(dim1, dim2);
+            }
+        }
+    }
+}
+#[cfg(all(feature = "bench", test))]
+mod bench {
+    use super::*;
+    use test::Bencher;
+
+    #[bench]
+    fn _compute_vc_dimension_naive_10(b: &mut Bencher) {
+        let v = VcDim::with_random_polygon(10);
+        b.iter(|| v._compute_vc_dimension_naive());
+    }
+    #[bench]
+    fn _compute_vc_dimension_10(b: &mut Bencher) {
+        let v = VcDim::with_random_polygon(10);
+        b.iter(|| v._compute_vc_dimension());
+    }
+    #[bench]
+    fn _compute_vc_dimension_naive_20(b: &mut Bencher) {
+        let v = VcDim::with_random_polygon(20);
+        b.iter(|| v._compute_vc_dimension_naive());
+    }
+    #[bench]
+    fn _compute_vc_dimension_20(b: &mut Bencher) {
+        let v = VcDim::with_random_polygon(20);
+        b.iter(|| v._compute_vc_dimension());
+    }
+    #[bench]
+    fn _compute_vc_dimension_naive_30(b: &mut Bencher) {
+        let v = VcDim::with_random_polygon(30);
+        b.iter(|| v._compute_vc_dimension_naive());
+    }
+    #[bench]
+    fn _compute_vc_dimension_30(b: &mut Bencher) {
+        let v = VcDim::with_random_polygon(30);
+        b.iter(|| v._compute_vc_dimension());
+    }
+    #[bench]
+    fn _compute_vc_dimension_naive_40(b: &mut Bencher) {
+        let v = VcDim::with_random_polygon(40);
+        b.iter(|| v._compute_vc_dimension_naive());
+    }
+    #[bench]
+    fn _compute_vc_dimension_40(b: &mut Bencher) {
+        let v = VcDim::with_random_polygon(40);
+        b.iter(|| v._compute_vc_dimension());
+    }
+    #[bench]
+    fn _is_shattered_2_20(b: &mut Bencher) {
+        let v = VcDim::with_random_polygon(20);
+        b.iter(|| v._is_shattered(&[1, 4]));
+    }
+    #[bench]
+    fn _is_shattered_2_40(b: &mut Bencher) {
+        let v = VcDim::with_random_polygon(40);
+        b.iter(|| v._is_shattered(&[1, 4]));
+    }
+    #[bench]
+    fn _is_shattered_2_80(b: &mut Bencher) {
+        let v = VcDim::with_random_polygon(80);
+        b.iter(|| v._is_shattered(&[1, 4]));
+    }
+    #[bench]
+    fn _is_shattered_3_20(b: &mut Bencher) {
+        let v = VcDim::with_random_polygon(20);
+        b.iter(|| v._is_shattered(&[1, 4, 7]));
+    }
+    #[bench]
+    fn _is_shattered_3_40(b: &mut Bencher) {
+        let v = VcDim::with_random_polygon(40);
+        b.iter(|| v._is_shattered(&[1, 4, 7]));
+    }
+    #[bench]
+    fn _is_shattered_3_80(b: &mut Bencher) {
+        let v = VcDim::with_random_polygon(80);
+        b.iter(|| v._is_shattered(&[1, 4, 7]));
     }
 }
