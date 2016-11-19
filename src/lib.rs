@@ -19,6 +19,8 @@ pub struct VcDim {
     /// Visibility matrix of the polygon.
     /// The boolean `visible[i][j]` is true iff `points[i]` sees `points[j]`.
     pub visible: Vec<Vec<bool>>,
+    // Holds an u8 giving the VC-dimension
+    // and a Vec<usize> giving the indices of an maximal shattered subset.
     _vc_dimension_cache: RefCell<Option<(u8, Vec<usize>)>>
 }
 impl VcDim {
@@ -238,7 +240,7 @@ impl VcDim {
             subset_size += 1;
         }
         let vc = (vc_dim as u8, shattered_subset.to_vec()); // copy shattered_subset
-        let mut cache = self._vc_dimension_cache.borrow_mut(); // TODO: change to try_borrow_mut; but this function is unstable
+        let mut cache = self._vc_dimension_cache.borrow_mut(); // panics if the cache is currently borrowed (should not happen!)
         *cache = Some(vc);
 
         (vc_dim as u8, shattered_subset)
@@ -269,7 +271,7 @@ impl VcDim {
             subset_size += 1;
         }
         let vc = (vc_dim as u8, shattered_subset.to_vec()); // copy shattered_subset
-        let mut cache = self._vc_dimension_cache.borrow_mut(); // TODO: change to try_borrow_mut; but this function is unstable
+        let mut cache = self._vc_dimension_cache.borrow_mut(); // panics if the cache is currently borrowed (should not happen!)
         *cache = Some(vc);
 
         (vc_dim as u8, shattered_subset)
