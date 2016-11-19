@@ -379,7 +379,8 @@ impl IpeExport for VcDim {
 #[derive(Debug)]
 pub enum IpeImportError { //TODO?: doesn't impl Error for now
     IoError(std::io::Error),
-    Malformed
+    Malformed,
+    SubsetNotShattered
 }
 impl From<std::io::Error> for IpeImportError {
     fn from(err: std::io::Error) -> Self {
@@ -391,9 +392,10 @@ pub trait IpeImport {
 }
 impl IpeImport for VcDim {
     fn import_ipe<R: Read>(mut r: R, scale: f64) -> Result<VcDim, IpeImportError> {
-        // TODO?: should this also import the shattered subset?
+        // TODO: do parsing with regex.
         let mut file_contents = String::new();
         try!(r.read_to_string(&mut file_contents));
+        let vcd;
         if let Some(idx_start) = file_contents.find("<path>") { //TODO: make more robust by allowing attrs on path element
             let idx_start = idx_start + 6; // 6 == "<path>".len()
             if let Some(idx_end) = file_contents[idx_start..].find("</path>") {
@@ -410,12 +412,50 @@ impl IpeImport for VcDim {
                         })
                         .collect::<Vec<Point>>();
                     let polygon = Polygon::from_points(&points);
-                    let vcd = VcDim::new(polygon);
-                    return Ok(vcd);
+                    vcd = VcDim::new(polygon);
+                } else {
+                    return Err(IpeImportError::Malformed);
                 }
+            } else {
+                return Err(IpeImportError::Malformed);
+            }
+        } else {
+            return Err(IpeImportError::Malformed);
+        }
+        // import shattered subset if present
+        let mut shattered_subset = vec![];
+        let mut read_position = 0;
+        while let Some(idx_start) = file_contents[read_position..].find(r#"<use name="vc-point" pos=""#) {
+            let idx_start = read_position + idx_start + 26; // 26 == r#"<use name="vc-point" pos=""#.len()
+            if let Some(idx_end) = file_contents[idx_start..].find(r#""/>"#) {
+                // all points are listed between indices idx_start and idx_end
+                let point_str = &file_contents[idx_start..(idx_start+idx_end)].trim();
+                let coords = point_str.split(' ').collect::<Vec<&str>>();
+                let x = coords[0].parse::<f64>().expect("Couldn't parse f64") * scale;
+                let y = coords[1].parse::<f64>().expect("Couldn't parse f64") * scale;
+                shattered_subset.push(Point::new(x, y));
+                read_position = idx_start+idx_end;
+            } else {
+                return Err(IpeImportError::Malformed);
             }
         }
-        Err(IpeImportError::Malformed)
+        if shattered_subset.len() > 0 {
+            if !vcd.is_shattered(&shattered_subset) {
+                return Err(IpeImportError::SubsetNotShattered);
+            }
+            let mut indices = Vec::with_capacity(shattered_subset.len());
+            for i in 0..shattered_subset.len() {
+                if let Some(idx) = vcd.polygon.points().iter().position(|&x| x == shattered_subset[i]) {
+                    indices.push(idx);
+                } else {
+                    return Err(IpeImportError::Malformed);
+                }
+            }
+            let vc = (shattered_subset.len() as u8, indices); // copy shattered_subset
+            let mut cache = vcd._vc_dimension_cache.borrow_mut(); // panics if the cache is currently borrowed (should not happen!)
+            *cache = Some(vc);
+        }
+        Ok(vcd)
     }
 }
 
