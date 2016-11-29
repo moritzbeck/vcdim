@@ -166,6 +166,9 @@ impl VcDim {
 
         visible_p.into_iter().all(|b| b)
     }
+    /// Determines if the given set of `Point`s is shattered.
+    ///
+    /// Returns false if one of the given `Point`s is not a vertex of `self.polygon`.
     pub fn is_shattered(&self, p: &[Point]) -> bool {
         let mut indices = Vec::with_capacity(p.len());
         for i in 0..p.len() {
@@ -177,6 +180,9 @@ impl VcDim {
         }
         self._is_shattered(&indices)
     }
+    /// Returns the points of `self.polygon`.
+    ///
+    /// Convenience method equal to `self.polygon.points()`.
     pub fn points(&self) -> &[Point] {
         self.polygon.points()
     }
@@ -276,10 +282,20 @@ impl VcDim {
 
         (vc_dim as u8, shattered_subset)
     }
+    /// Returns the VC-dimension of `self.polygon`.
+    ///
+    /// Caches the result of the computation.
+    /// If `self.vc_dimension` or `self.max_shattered_subset` was called before,
+    /// just returns the cached value.
     pub fn vc_dimension(&self) -> u8 {
         let (vc_dim, _) = self._compute_vc_dimension();
         vc_dim
     }
+    /// Returns a maximum shatttered subset of `self.polygon`.
+    ///
+    /// Caches the result of the computation.
+    /// If `self.vc_dimension` or `self.max_shattered_subset` was called before,
+    /// just returns the cached value.
     pub fn max_shattered_subset(&self) -> Vec<Point> {
         let (_, subset) = self._compute_vc_dimension();
         subset.into_iter().map(|i| self.polygon.points()[i]).collect()
@@ -352,6 +368,8 @@ impl IpeExport for VcDim {
 <color name="yellow" value="1 1 0"/>
 <color name="orange" value="1 0.647 0"/>
 <color name="purple" value="0.627 0.125 0.941"/>
+<dashstyle name="normal" value="[]0"/>
+<dashstyle name="dashed" value="[3 3]0"/>
 </ipestyle>
 <page>
 <path>"#));
@@ -380,7 +398,7 @@ impl IpeExport for VcDim {
 pub enum IpeImportError { //TODO?: doesn't impl Error for now
     IoError(std::io::Error),
     Malformed,
-    SubsetNotShattered
+    SubsetNotShattered(VcDim)
 }
 impl From<std::io::Error> for IpeImportError {
     fn from(err: std::io::Error) -> Self {
@@ -396,6 +414,7 @@ impl IpeImport for VcDim {
         let mut file_contents = String::new();
         try!(r.read_to_string(&mut file_contents));
         let vcd;
+        // TODO: rewrite using Option::and_then()
         if let Some(idx_start) = file_contents.find("<path>") { //TODO: make more robust by allowing attrs on path element
             let idx_start = idx_start + 6; // 6 == "<path>".len()
             if let Some(idx_end) = file_contents[idx_start..].find("</path>") {
@@ -441,7 +460,7 @@ impl IpeImport for VcDim {
         }
         if shattered_subset.len() > 0 {
             if !vcd.is_shattered(&shattered_subset) {
-                return Err(IpeImportError::SubsetNotShattered);
+                return Err(IpeImportError::SubsetNotShattered(vcd));
             }
             let mut indices = Vec::with_capacity(shattered_subset.len());
             for i in 0..shattered_subset.len() {
