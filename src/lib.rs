@@ -10,7 +10,6 @@ extern crate rand;
 use polygon::*;
 use std::io::{Read, Write};
 use std::cell::RefCell;
-use rand::distributions::{IndependentSample, Range};
 
 #[derive(Debug)]
 pub struct VcDim {
@@ -39,7 +38,7 @@ impl VcDim {
         v._calculate_visibility();
         v
     }
-    pub fn with_random_polygon(n: usize) -> VcDim {
+    pub fn with_random_polygon(n: usize, mode: generate::Mode) -> VcDim {
         assert!(n >= 3);
         let mut vis = Vec::with_capacity(n);
         for _ in 0..n {
@@ -50,26 +49,13 @@ impl VcDim {
             polygon: Polygon::from_points(&vec![Point::new_u(0, 0); n]),
             _vc_dimension_cache: RefCell::new(None)
         };
-        v.randomize_polygon();
+        v.randomize_polygon(mode);
         v
     }
-    pub fn randomize_polygon(&mut self) {
-        let mut rng = rand::thread_rng();
-        let range = Range::new(1.0, 500.0);
-        let len = self.polygon.size();
-        {
-            let points = self.polygon.points_mut();
-            for i in 0..len {
-                let rand_x = range.ind_sample(&mut rng);
-                let rand_y = range.ind_sample(&mut rng);
-                points[i] = Point::new(rand_x, rand_y);
-            }
-        }
-        let d = self._disentangle_polygon();
-        if d.is_none() {
-            self.randomize_polygon(); // try again
-            // TODO?: remove recursion
-        }
+    pub fn randomize_polygon(&mut self, mode: generate::Mode) {
+        self.polygon.randomize(mode);
+
+        // reset the cache
         self._vc_dimension_cache = RefCell::new(None);
         // The following lines are needed because of
         // an assumption by `_calculate_visibility`.
@@ -79,45 +65,6 @@ impl VcDim {
             }
         }
         self._calculate_visibility();
-    }
-    fn _disentangle_polygon(&mut self) -> Option<u32> {
-        // Ω(n^2)
-        let len = self.polygon.size();
-        assert!(len >= 3);
-        let points = self.polygon.points_mut();
-        let mut tangled = true;
-        let mut swaps = 0;
-        while tangled {
-            tangled = false;
-            let l1 = Line::new(points[len-1], points[0]);
-            for j in 1..len-2 {
-                let l2 = Line::new(points[j], points[j+1]);
-                if l1.intersects(&l2) {
-                    points.swap(0, j);
-                    swaps += 1;
-                    tangled = true;
-                    break;
-                }
-            }
-            for i in 0..len-3 {
-                for j in i+2..len-1 {
-                    let l1 = Line::new(points[i], points[i+1]);
-                    let l2 = Line::new(points[j], points[j+1]);
-                    if l1.intersects(&l2) {
-                        points.swap(i+1, j);
-                        swaps += 1;
-                        tangled = true;
-                        break;
-                    }
-                }
-            }
-            if swaps >= 20_000 { // TODO: choose a good limit; this limit should be dependent on the size of the polygon
-                //print!("*");
-                return None
-            }
-        }
-        //println!("swaps: {}", swaps);
-        Some(swaps)
     }
     fn _calculate_visibility(&mut self) {
         // !!! Assumes that self.visible is intialised with 'true' set for each element !!!
