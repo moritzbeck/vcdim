@@ -229,13 +229,51 @@ impl VcDim {
 
         (vc_dim as u8, shattered_subset)
     }
+    fn _compute_vc_dimension_subset(&self) -> (u8, Vec<usize>) {
+        if let Some((dim, ref subset)) = *self._vc_dimension_cache.borrow() {
+            return (dim, subset.to_vec()); // clone subset
+        }
+        if self.polygon.size() <= 3 { return (0, Vec::new()); }
+        let max = self.polygon.size() - 1;
+        let mut max_shattered = Vec::with_capacity(6);
+        let mut pts = Vec::with_capacity(6);
+        pts.push(0);
+        loop {
+                            //println!("Checking {:?}", pts);
+            let last = *pts.last().expect("pts.len() should always be greater than 0.");
+            if self._is_shattered(&pts[..]) {
+                            //println!("It is shattered!");
+                if pts.len() > max_shattered.len() {
+                            //println!("It is the new max shattered subset!");
+                    max_shattered.clone_from(&pts);
+                }
+                if last != max {
+                    pts.push(last);
+                }
+            }
+            if last == max {
+                pts.pop();
+            }
+            if pts.is_empty() {
+                break;
+            }
+            *pts.last_mut().expect("We just checked that `pts` is not empty.") += 1;
+        }
+                            //println!("MAX: {:?}", max_shattered);
+
+        let vc = (max_shattered.len() as u8, max_shattered.to_vec()); // copy shattered_subset
+        let mut cache = self._vc_dimension_cache.borrow_mut(); // panics if the cache is currently borrowed (should not happen!)
+        *cache = Some(vc);
+
+        (max_shattered.len() as u8, max_shattered)
+    }
     /// Returns the VC-dimension of `self.polygon`.
     ///
     /// Caches the result of the computation.
     /// If `self.vc_dimension` or `self.max_shattered_subset` was called before,
     /// just returns the cached value.
     pub fn vc_dimension(&self) -> u8 {
-        let (vc_dim, _) = self._compute_vc_dimension();
+        let (vc_dim, _) = self._compute_vc_dimension_subset();
         vc_dim
     }
     /// Returns a maximum shatttered subset of `self.polygon`.
@@ -244,7 +282,7 @@ impl VcDim {
     /// If `self.vc_dimension` or `self.max_shattered_subset` was called before,
     /// just returns the cached value.
     pub fn max_shattered_subset(&self) -> Vec<Point> {
-        let (_, subset) = self._compute_vc_dimension();
+        let (_, subset) = self._compute_vc_dimension_subset();
         subset.into_iter().map(|i| self.polygon.points()[i]).collect()
     }
 }
