@@ -468,6 +468,7 @@ impl IpeImport for VcDim {
 mod tests {
     use super::*;
     use polygon::*;
+    use polygon::generate::Mode;
 
     #[test]
     fn _calculate_visibility_works() {
@@ -549,7 +550,7 @@ mod tests {
     #[test]
     fn _edge_tuples_from_previous_set_works() {
         for size in 10..20 {
-            let v = VcDim::with_random_polygon(size); // TODO: deterministic polygon to save time (only size of polygon is needed)
+            let v = VcDim::with_random_polygon(size, Mode::QuickStarLike); // TODO: deterministic polygon to save time (only size of polygon is needed)
             let m = size - 1; //max index
             assert_eq!(Some(vec![0]), v._edge_tuples_from_previous_set(vec![]).next());
             assert_eq!(Some(vec![0,1]), v._edge_tuples_from_previous_set(vec![0]).next());
@@ -570,10 +571,12 @@ mod tests {
     fn _compute_vc_dimension_fns_are_equal() {
         for size in 3..20 {
             for _ in 0..10 {
-                let v = VcDim::with_random_polygon(size);
+                let v = VcDim::with_random_polygon(size, Mode::QuickStarLike);
                 let dim1 = v._compute_vc_dimension_naive();
                 let dim2 = v._compute_vc_dimension();
                 assert_eq!(dim1, dim2);
+                let dim3 = v._compute_vc_dimension_subset();
+                assert_eq!(dim1, dim3);
             }
         }
     }
@@ -582,75 +585,98 @@ mod tests {
 mod bench {
     use super::*;
     use test::Bencher;
+    use polygon::generate::Mode;
+
+    const MODE: Mode = Mode::QuickStarLike;
 
     #[bench]
     fn _compute_vc_dimension_naive_10(b: &mut Bencher) {
-        let v = VcDim::with_random_polygon(10);
+        let v = VcDim::with_random_polygon(10, MODE);
         b.iter(|| v._compute_vc_dimension_naive());
     }
     #[bench]
     fn _compute_vc_dimension_10(b: &mut Bencher) {
-        let v = VcDim::with_random_polygon(10);
+        let v = VcDim::with_random_polygon(10, MODE);
         b.iter(|| v._compute_vc_dimension());
     }
     #[bench]
+    fn _compute_vc_dimension_subset_10(b: &mut Bencher) {
+        let v = VcDim::with_random_polygon(10, MODE);
+        b.iter(|| v._compute_vc_dimension_subset());
+    }
+    #[bench]
     fn _compute_vc_dimension_naive_20(b: &mut Bencher) {
-        let v = VcDim::with_random_polygon(20);
+        let v = VcDim::with_random_polygon(20, MODE);
         b.iter(|| v._compute_vc_dimension_naive());
     }
     #[bench]
     fn _compute_vc_dimension_20(b: &mut Bencher) {
-        let v = VcDim::with_random_polygon(20);
+        let v = VcDim::with_random_polygon(20, MODE);
         b.iter(|| v._compute_vc_dimension());
     }
     #[bench]
+    fn _compute_vc_dimension_subset_20(b: &mut Bencher) {
+        let v = VcDim::with_random_polygon(20, MODE);
+        b.iter(|| v._compute_vc_dimension_subset());
+    }
+    #[bench]
     fn _compute_vc_dimension_naive_30(b: &mut Bencher) {
-        let v = VcDim::with_random_polygon(30);
+        let v = VcDim::with_random_polygon(30, MODE);
         b.iter(|| v._compute_vc_dimension_naive());
     }
     #[bench]
     fn _compute_vc_dimension_30(b: &mut Bencher) {
-        let v = VcDim::with_random_polygon(30);
+        let v = VcDim::with_random_polygon(30, MODE);
         b.iter(|| v._compute_vc_dimension());
     }
     #[bench]
+    fn _compute_vc_dimension_subset_30(b: &mut Bencher) {
+        let v = VcDim::with_random_polygon(30, MODE);
+        b.iter(|| v._compute_vc_dimension_subset());
+    }
+    #[bench]
     fn _compute_vc_dimension_naive_40(b: &mut Bencher) {
-        let v = VcDim::with_random_polygon(40);
+        let v = VcDim::with_random_polygon(40, MODE);
         b.iter(|| v._compute_vc_dimension_naive());
     }
     #[bench]
     fn _compute_vc_dimension_40(b: &mut Bencher) {
-        let v = VcDim::with_random_polygon(40);
+        let v = VcDim::with_random_polygon(40, MODE);
         b.iter(|| v._compute_vc_dimension());
     }
     #[bench]
+    fn _compute_vc_dimension_subset_40(b: &mut Bencher) {
+        let v = VcDim::with_random_polygon(40, MODE);
+        b.iter(|| v._compute_vc_dimension_subset());
+    }
+    #[bench]
     fn _is_shattered_2_20(b: &mut Bencher) {
-        let v = VcDim::with_random_polygon(20);
+        let v = VcDim::with_random_polygon(20, MODE);
         b.iter(|| v._is_shattered(&[1, 4]));
     }
     #[bench]
     fn _is_shattered_2_40(b: &mut Bencher) {
-        let v = VcDim::with_random_polygon(40);
+        let v = VcDim::with_random_polygon(40, MODE);
         b.iter(|| v._is_shattered(&[1, 4]));
     }
     #[bench]
     fn _is_shattered_2_80(b: &mut Bencher) {
-        let v = VcDim::with_random_polygon(80);
+        let v = VcDim::with_random_polygon(80, MODE);
         b.iter(|| v._is_shattered(&[1, 4]));
     }
     #[bench]
     fn _is_shattered_3_20(b: &mut Bencher) {
-        let v = VcDim::with_random_polygon(20);
+        let v = VcDim::with_random_polygon(20, MODE);
         b.iter(|| v._is_shattered(&[1, 4, 7]));
     }
     #[bench]
     fn _is_shattered_3_40(b: &mut Bencher) {
-        let v = VcDim::with_random_polygon(40);
+        let v = VcDim::with_random_polygon(40, MODE);
         b.iter(|| v._is_shattered(&[1, 4, 7]));
     }
     #[bench]
     fn _is_shattered_3_80(b: &mut Bencher) {
-        let v = VcDim::with_random_polygon(80);
+        let v = VcDim::with_random_polygon(80, MODE);
         b.iter(|| v._is_shattered(&[1, 4, 7]));
     }
 }
