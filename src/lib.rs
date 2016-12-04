@@ -239,12 +239,9 @@ impl VcDim {
         let mut pts = Vec::with_capacity(6);
         pts.push(0);
         loop {
-                            //println!("Checking {:?}", pts);
             let last = *pts.last().expect("pts.len() should always be greater than 0.");
             if self._is_shattered(&pts[..]) {
-                            //println!("It is shattered!");
                 if pts.len() > max_shattered.len() {
-                            //println!("It is the new max shattered subset!");
                     max_shattered.clone_from(&pts);
                 }
                 if last != max {
@@ -259,7 +256,6 @@ impl VcDim {
             }
             *pts.last_mut().expect("We just checked that `pts` is not empty.") += 1;
         }
-                            //println!("MAX: {:?}", max_shattered);
 
         let vc = (max_shattered.len() as u8, max_shattered.to_vec()); // copy shattered_subset
         let mut cache = self._vc_dimension_cache.borrow_mut(); // panics if the cache is currently borrowed (should not happen!)
