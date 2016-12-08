@@ -263,6 +263,110 @@ impl VcDim {
 
         (max_shattered.len() as u8, max_shattered)
     }
+    fn _compute_max_shattered_subsets(&self) -> Vec<Vec<usize>> {
+        if self.polygon.size() <= 3 { return vec![vec![]]; }
+        let max = self.polygon.size() - 1;
+        let mut max_shattered_size = 0;
+        let mut max_shattered = vec![vec![]];
+        let mut pts = Vec::with_capacity(6);
+        pts.push(0);
+        loop {
+            let last = *pts.last().expect("pts.len() should always be greater than 0.");
+            if self._is_shattered(&pts[..]) {
+                if pts.len() > max_shattered_size {
+                    max_shattered_size = pts.len();
+                    max_shattered = Vec::new();
+                    max_shattered.push(pts.clone());
+                } else if pts.len() == max_shattered_size {
+                    max_shattered.push(pts.clone());
+                }
+                if last != max {
+                    pts.push(last);
+                }
+            }
+            if last == max {
+                pts.pop();
+            }
+            if pts.is_empty() {
+                break;
+            }
+            *pts.last_mut().expect("We just checked that `pts` is not empty.") += 1;
+        }
+
+        if self._vc_dimension_cache.borrow().is_none() {
+            // cache the first found shattered subset
+            let vc = (max_shattered[0].len() as u8, max_shattered[0].to_vec()); // copy shattered_subset
+            let mut cache = self._vc_dimension_cache.borrow_mut(); // panics if the cache is currently borrowed (should not happen!)
+            *cache = Some(vc);
+        }
+
+        max_shattered
+    }
+    fn _compute_max_shattered_subsets_limit(&self, limit: usize) -> Vec<Vec<usize>> {
+        assert!(limit > 0);
+        if self.polygon.size() <= 3 { return vec![vec![]]; }
+        let max = self.polygon.size() - 1;
+        let mut max_shattered_size = 0;
+        let mut max_shattered = vec![vec![]];
+        let mut pts = Vec::with_capacity(6);
+        pts.push(0);
+        loop {
+            let last = *pts.last().expect("pts.len() should always be greater than 0.");
+            if self._is_shattered(&pts[..]) {
+                if pts.len() > max_shattered_size {
+                    max_shattered_size = pts.len();
+                    max_shattered = Vec::new();
+                    max_shattered.push(pts.clone());
+                } else if pts.len() == max_shattered_size && max_shattered.len() < limit {
+                    max_shattered.push(pts.clone());
+                }
+                if last != max {
+                    pts.push(last);
+                }
+            }
+            if last == max {
+                pts.pop();
+            }
+            if pts.is_empty() {
+                break;
+            }
+            *pts.last_mut().expect("We just checked that `pts` is not empty.") += 1;
+        }
+
+        if self._vc_dimension_cache.borrow().is_none() {
+            // cache the first found shattered subset
+            let vc = (max_shattered[0].len() as u8, max_shattered[0].to_vec()); // copy shattered_subset
+            let mut cache = self._vc_dimension_cache.borrow_mut(); // panics if the cache is currently borrowed (should not happen!)
+            *cache = Some(vc);
+        }
+
+        max_shattered
+    }
+    /// Returns all maximum shattered subsets of `self.polygon`.
+    ///
+    /// Caches the result of the computation.
+    /// If `self.vc_dimension` or `self.max_shattered_subset` was called before,
+    /// just returns the cached value.
+    pub fn all_max_shattered_subsets(&self) -> Vec<Vec<Point>> {
+        let subset_indices = self._compute_max_shattered_subsets();
+        subset_indices.into_iter().map(|subset| {
+            subset.into_iter().map(|i| { self.points()[i] }).collect()
+        }).collect()
+    }
+    /// Returns `n` many maximum shattered subsets of `self.polygon`.
+    ///
+    /// This function saves space vs. `self.all_max_shattered_subsets`
+    /// as only up to `n` Vector entries must be saved.
+    ///
+    /// Caches the result of the computation.
+    /// If `self.vc_dimension` or `self.max_shattered_subset` was called before,
+    /// just returns the cached value.
+    pub fn first_n_max_shattered_subsets(&self, n: usize) -> Vec<Vec<Point>> {
+        let subset_indices = self._compute_max_shattered_subsets_limit(n);
+        subset_indices.into_iter().map(|subset| {
+            subset.into_iter().map(|i| { self.points()[i] }).collect()
+        }).collect()
+    }
     /// Returns the VC-dimension of `self.polygon`.
     ///
     /// Caches the result of the computation.
@@ -272,7 +376,7 @@ impl VcDim {
         let (vc_dim, _) = self._compute_vc_dimension_subset();
         vc_dim
     }
-    /// Returns a maximum shatttered subset of `self.polygon`.
+    /// Returns a maximum shattered subset of `self.polygon`.
     ///
     /// Caches the result of the computation.
     /// If `self.vc_dimension` or `self.max_shattered_subset` was called before,
