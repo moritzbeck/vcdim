@@ -238,7 +238,13 @@ impl VcDim {
         let mut max_shattered = Vec::with_capacity(6);
         let mut pts = Vec::with_capacity(6);
         pts.push(0);
+
+        #[cfg(feature = "print_info")]
+        let mut subset_counts = [0, 0, 0, 0, 0, 0]; // counts how many subsets are checked
+                                                    // index i counts the subsets of size i+1
         loop {
+            #[cfg(feature = "print_info")]
+            {subset_counts[pts.len()-1] += 1;}
             let last = *pts.last().expect("pts.len() should always be greater than 0.");
             if self._is_shattered(&pts[..]) {
                 if pts.len() > max_shattered.len() {
@@ -257,11 +263,37 @@ impl VcDim {
             *pts.last_mut().expect("We just checked that `pts` is not empty.") += 1;
         }
 
+        #[cfg(feature = "print_info")]
+        {
+            println!("\n          ======DEBUG=====>");
+            println!("VC-Dimension: {}", max_shattered.len());
+            let mut sum0 = 0;
+            let mut sum1 = 0;
+            for i in 1..max_shattered.len()+2 {
+                sum0 += subset_counts[i-1];
+                sum1 += Self::_binom(i, self.polygon.size());
+                println!("{: >5}/{: >7} subsets of size {}", subset_counts[i-1], Self::_binom(i, self.polygon.size()), i);
+            }
+            println!("Overall savings: {:.1}%", (1.0 - sum0 as f64/sum1 as f64)* 100. );
+            println!("          <=====DEBUG======");
+        }
+
         let vc = (max_shattered.len() as u8, max_shattered.to_vec()); // copy shattered_subset
         let mut cache = self._vc_dimension_cache.borrow_mut(); // panics if the cache is currently borrowed (should not happen!)
         *cache = Some(vc);
 
         (max_shattered.len() as u8, max_shattered)
+    }
+    #[cfg(feature = "print_info")]
+    fn _binom(bot: usize, top: usize) -> u64 { // types are quite arbitrary
+        let mut prod = top as u64;
+        for i in top+1-bot..top {
+            prod *= i as u64;
+        }
+        for i in 2..bot+1 {
+            prod /= i as u64;
+        }
+        prod
     }
     fn _compute_max_shattered_subsets(&self) -> Vec<Vec<usize>> {
         if self.polygon.size() <= 3 { return vec![vec![]]; }
