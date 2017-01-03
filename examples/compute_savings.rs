@@ -5,6 +5,13 @@ use polygon::generate::Mode;
 use vcdim::*;
 
 fn main() {
+    #[cfg(not(feature = "print_info"))]
+    {
+        println!("WARNING: This does nothing if the feature `print_info` is disabled.");
+        println!("         Please enable this feature.");
+        return;
+    }
+
     let mut args = std::env::args().skip(1);
     let n = if let Some(n) = args.next() {
         n.parse().expect("n must be an positive integer")
