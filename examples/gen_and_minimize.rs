@@ -60,12 +60,12 @@ fn is_sufficiently_small(vcd: &VcDim) -> bool {
 }
 
 fn main() {
-    let mut args = std::env::args();
-    let n = if args.len() >= 2 {
-        args.nth(1).unwrap().parse().unwrap()
+    let mut args = std::env::args().skip(1);
+    let n = if let Some(n) = args.next() {
+        n.parse().expect("n must be an positive integer")
     } else { 20 };
     let count = if let Some(cnt) = args.next() {
-        cnt.parse().unwrap()
+        cnt.parse().expect("count must be an positive integer")
     } else { 10 };
 
     let out_dir = "out";
@@ -87,10 +87,10 @@ fn main() {
         } else if vc_dim == 4 {
             max_shattered_subsets = vcd.all_max_shattered_subsets();
             print!("{}", vc_dim);
-        } else if vc_dim == 3 {
+        } else /*if vc_dim == 3 {
             max_shattered_subsets = vcd.first_n_max_shattered_subsets(10);
             print!("{}", vc_dim);
-        } else {
+        } else*/ {
             max_shattered_subsets = vec![];
             print!("{}", vc_dim);
         }

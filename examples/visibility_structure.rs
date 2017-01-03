@@ -11,11 +11,11 @@ fn visibility_structure(vcd: &VcDim) -> String {
         let c = v.iter().enumerate()
             .filter(|&(j, sees_i)| { sh.contains(&pts[j]) && *sees_i })
             .count();
-            if sh.contains(&pts[i]) {
-                (96 + c as u8) as char // 1 -> 'a', 2 -> 'b', etc.
-            } else {
-                (48 + c as u8) as char // 0 -> '0', 1 -> '1', etc.
-            }
+        if sh.contains(&pts[i]) {
+            (96 + c as u8) as char // 1 -> 'a', 2 -> 'b', etc.
+        } else {
+            (48 + c as u8) as char // 0 -> '0', 1 -> '1', etc.
+        }
     }).collect::<String>()
 }
 /// Normalizes a `String` representing the visibility structure of a polygon.
