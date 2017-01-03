@@ -33,12 +33,18 @@ fn normalize(str: &str) -> String {
 }
 
 fn main() {
-    let mut args = std::env::args();
-    let in_dir = if args.len() >= 2 {
-        args.nth(1).unwrap()
-    } else {
-        "in".into()
-    };
+    let mut args = std::env::args().skip(1);
+    let mut sort = false;
+    let mut in_dir = "in".into();
+    while let Some(arg) = args.next() {
+        if arg == "--sort" {
+            sort = true;
+        } else {
+            in_dir = arg;
+        }
+    }
+    let sort = sort; //make immutable
+    let in_dir = in_dir; //make immutable
 
     let mut ipe_files = Vec::new();
     if let Ok(entries) = fs::read_dir(in_dir) {
@@ -56,9 +62,14 @@ fn main() {
     for path in ipe_files {
         let vcd = VcDim::import_ipe(fs::File::open(path).expect("file not found"), 1f64).expect("File is malformed!");
         let vis_str = normalize(&visibility_structure(&vcd));
-        let counter = vis_structures.entry(vis_str).or_insert(0);
-        *counter += 1;
+        if !sort {
+            println!("{}", vis_str);
+        } else {
+            let counter = vis_structures.entry(vis_str).or_insert(0);
+            *counter += 1;
+        }
     }
+    if !sort { return; }
     let mut vis_counts: Vec<_> = vis_structures.iter().collect();
     vis_counts.sort_by(|a, b| b.1.cmp(a.1));
 
