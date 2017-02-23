@@ -1,4 +1,4 @@
-//#![warn(missing_docs)]
+#![warn(missing_docs)]
 #![cfg_attr(feature = "bench", feature(test))]
 
 #[cfg(all(feature = "bench", test))]
@@ -11,18 +11,23 @@ use polygon::*;
 use std::io::{Read, Write};
 use std::cell::RefCell;
 
+
 #[derive(Debug)]
 pub struct VcDim {
     /// The polygon of which the VC dimension is considered.
     pub polygon: Polygon,
     /// Visibility matrix of the polygon.
-    /// The boolean `visible[i][j]` is true iff `points[i]` sees `points[j]`.
+    ///
+    /// The bool `visible[i][j]` is true iff `points[i]` sees `points[j]`.
+    /// This matrix is symmetrical.
+    // TODO: Don't make this pub but implement a accessor function (copy).
     pub visible: Vec<Vec<bool>>,
     // Holds an u8 giving the VC-dimension
     // and a Vec<usize> giving the indices of an maximal shattered subset.
     _vc_dimension_cache: RefCell<Option<(u8, Vec<usize>)>>
 }
 impl VcDim {
+    /// Creates a new `VcDim` struct of the given `Polygon`.
     pub fn new(p: Polygon) -> VcDim {
         assert!(p.size() >= 3);
         assert!(p.is_simple());
@@ -38,6 +43,7 @@ impl VcDim {
         v._calculate_visibility();
         v
     }
+    /// Creates a new `VcDim` struct with a randomly generated polygon with `n` edges.
     pub fn with_random_polygon(n: usize, mode: generate::Mode) -> VcDim {
         assert!(n >= 3);
         let mut vis = Vec::with_capacity(n);
@@ -52,6 +58,7 @@ impl VcDim {
         v.randomize_polygon(mode);
         v
     }
+    /// Generates a new random polygon that has the same number of edges as `self.polygon`.
     pub fn randomize_polygon(&mut self, mode: generate::Mode) {
         self.polygon.randomize(mode);
 
@@ -133,6 +140,7 @@ impl VcDim {
     pub fn points(&self) -> &[Point] {
         self.polygon.points()
     }
+    #[cfg(feature = "naive_dim")]
     fn _edge_tuples(&self, size: usize) -> SubsetIter {
         assert!(self.polygon.size() >= size);
         SubsetIter {
@@ -141,6 +149,7 @@ impl VcDim {
             state: SubSetIterState::New
         }
     }
+    #[cfg(feature = "naive_dim")]
     fn _edge_tuples_from_previous_set(&self, set: Vec<usize>) -> SubsetIter {
         assert!(self.polygon.size() >= set.len() + 1);
         let max = self.polygon.size() - 1;
@@ -167,6 +176,7 @@ impl VcDim {
             state: SubSetIterState::Subset(set)
         }
     }
+    #[cfg(feature = "naive_dim")]
     fn _compute_vc_dimension_naive(&self) -> (u8, Vec<usize>) {
         if let Some((dim, ref subset)) = *self._vc_dimension_cache.borrow() {
             return (dim, subset.to_vec()); // clone subset
@@ -198,6 +208,7 @@ impl VcDim {
 
         (vc_dim as u8, shattered_subset)
     }
+    #[cfg(feature = "naive_dim")]
     fn _compute_vc_dimension(&self) -> (u8, Vec<usize>) {
         if let Some((dim, ref subset)) = *self._vc_dimension_cache.borrow() {
             return (dim, subset.to_vec()); // clone subset
@@ -405,7 +416,10 @@ impl VcDim {
     /// If `self.vc_dimension` or `self.max_shattered_subset` was called before,
     /// just returns the cached value.
     pub fn vc_dimension(&self) -> u8 {
+        #[cfg(not(feature = "naive_dim"))]
         let (vc_dim, _) = self._compute_vc_dimension_subset();
+        #[cfg(feature = "naive_dim")]
+        let (vc_dim, _) = self._compute_vc_dimension_naive();
         vc_dim
     }
     /// Returns a maximum shattered subset of `self.polygon`.
@@ -414,20 +428,26 @@ impl VcDim {
     /// If `self.vc_dimension` or `self.max_shattered_subset` was called before,
     /// just returns the cached value.
     pub fn max_shattered_subset(&self) -> Vec<Point> {
+        #[cfg(not(feature = "naive_dim"))]
         let (_, subset) = self._compute_vc_dimension_subset();
+        #[cfg(feature = "naive_dim")]
+        let (_, subset) = self._compute_vc_dimension_naive();
         subset.into_iter().map(|i| self.polygon.points()[i]).collect()
     }
 }
+#[cfg(feature = "naive_dim")]
 enum SubSetIterState {
     New,
     Subset(Vec<usize>),
     Stopped
 }
+#[cfg(feature = "naive_dim")]
 struct SubsetIter {
     size: usize,
     max: usize,
     state: SubSetIterState
 }
+#[cfg(feature = "naive_dim")]
 impl Iterator for SubsetIter {
     type Item = Vec<usize>;
 
@@ -466,10 +486,19 @@ impl Iterator for SubsetIter {
     }
 }
 
+/// Export something as an [ipe](http://ipe.otfried.org/) file.
 pub trait IpeExport {
-    fn export_ipe<W: Write>(&self, w: W, scale: f64) -> std::io::Result<()>;
+    /// The Error type that is returned in case the export fails.
+    type Error;
+
+    /// Export an ipe file from the given `Write`er `w`.
+    ///
+    /// The parameter `scale` allows to multiply each input point with this value.
+    fn export_ipe<W: Write>(&self, w: W, scale: f64) -> std::io::Result<Self::Error>;
 }
 impl IpeExport for VcDim {
+    type Error = ();
+
     fn export_ipe<W: Write>(&self, mut w: W, scale: f64) -> std::io::Result<()> {
         try!(write!(w, r#"<ipe version="70206" creator="libvcdim">
 <ipestyle name="vc-poly">
@@ -511,10 +540,15 @@ impl IpeExport for VcDim {
         write!(w, "</page>\n</ipe>")
     }
 }
+/// Error from importing an ipe file to `VcDim`.
 #[derive(Debug)]
 pub enum IpeImportError { //TODO?: doesn't impl Error for now
+    /// An IoError occured.
     IoError(std::io::Error),
+    /// The imported file is not valid.
     Malformed,
+    /// A shattered subset was specified in the file
+    /// that is not shattered.
     SubsetNotShattered(VcDim)
 }
 impl From<std::io::Error> for IpeImportError {
@@ -522,10 +556,20 @@ impl From<std::io::Error> for IpeImportError {
         IpeImportError::IoError(err)
     }
 }
+/// Import something from an [ipe](http://ipe.otfried.org/) file.
 pub trait IpeImport {
-    fn import_ipe<R: Read>(r: R, scale: f64) -> Result<VcDim, IpeImportError>;
+    /// The Error type that is returned in case the import fails.
+    type Error;
+
+    /// Import an ipe file from the given `Read`er `r`.
+    ///
+    /// The parameter `scale` allows to multiply each input point with this value.
+    fn import_ipe<R: Read>(r: R, scale: f64) -> Result<Self, Self::Error>
+        where Self: std::marker::Sized;
 }
 impl IpeImport for VcDim {
+    type Error = IpeImportError;
+
     fn import_ipe<R: Read>(mut r: R, scale: f64) -> Result<VcDim, IpeImportError> {
         // TODO: do parsing with regex.
         let mut file_contents = String::new();
@@ -542,8 +586,8 @@ impl IpeImport for VcDim {
                     let points = points_str[..idx].split(|c| c == 'l' || c == 'm')
                         .map(|l| {
                             let split = l.trim().split(' ').collect::<Vec<&str>>();
-                            let x = split[0].parse::<f64>().expect("Couldn't parse f64") * scale;
-                            let y = split[1].parse::<f64>().expect("Couldn't parse f64") * scale;
+                            let x = split[0].parse::<f64>().expect("Couldn't parse x-coord as f64") * scale;
+                            let y = split[1].parse::<f64>().expect("Couldn't parse y-coord as f64") * scale;
                             Point::new(x,y)
                         })
                         .collect::<Vec<Point>>();
@@ -567,8 +611,8 @@ impl IpeImport for VcDim {
                 // all points are listed between indices idx_start and idx_end
                 let point_str = &file_contents[idx_start..(idx_start+idx_end)].trim();
                 let coords = point_str.split(' ').collect::<Vec<&str>>();
-                let x = coords[0].parse::<f64>().expect("Couldn't parse f64") * scale;
-                let y = coords[1].parse::<f64>().expect("Couldn't parse f64") * scale;
+                let x = coords[0].parse::<f64>().expect("Couldn't parse x-coord as f64") * scale;
+                let y = coords[1].parse::<f64>().expect("Couldn't parse y-coord as f64") * scale;
                 shattered_subset.push(Point::new(x, y));
                 read_position = idx_start+idx_end;
             } else {
@@ -600,6 +644,7 @@ impl IpeImport for VcDim {
 mod tests {
     use super::*;
     use polygon::*;
+    #[cfg(feature = "naive_dim")]
     use polygon::generate::Mode;
 
     #[test]
@@ -680,6 +725,7 @@ mod tests {
         // TODO: add tests
     }
     #[test]
+    #[cfg(feature = "naive_dim")]
     fn _edge_tuples_from_previous_set_works() {
         for size in 10..20 {
             let v = VcDim::with_random_polygon(size, Mode::QuickStarLike); // TODO: deterministic polygon to save time (only size of polygon is needed)
@@ -700,6 +746,7 @@ mod tests {
         }
     }
     #[test]
+    #[cfg(feature = "naive_dim")]
     fn _compute_vc_dimension_fns_are_equal() {
         for size in 3..20 {
             for _ in 0..10 {
@@ -722,11 +769,13 @@ mod bench {
     const MODE: Mode = Mode::QuickStarLike;
 
     #[bench]
+    #[cfg(feature = "naive_dim")]
     fn _compute_vc_dimension_naive_10(b: &mut Bencher) {
         let v = VcDim::with_random_polygon(10, MODE);
         b.iter(|| v._compute_vc_dimension_naive());
     }
     #[bench]
+    #[cfg(feature = "naive_dim")]
     fn _compute_vc_dimension_10(b: &mut Bencher) {
         let v = VcDim::with_random_polygon(10, MODE);
         b.iter(|| v._compute_vc_dimension());
@@ -737,11 +786,13 @@ mod bench {
         b.iter(|| v._compute_vc_dimension_subset());
     }
     #[bench]
+    #[cfg(feature = "naive_dim")]
     fn _compute_vc_dimension_naive_20(b: &mut Bencher) {
         let v = VcDim::with_random_polygon(20, MODE);
         b.iter(|| v._compute_vc_dimension_naive());
     }
     #[bench]
+    #[cfg(feature = "naive_dim")]
     fn _compute_vc_dimension_20(b: &mut Bencher) {
         let v = VcDim::with_random_polygon(20, MODE);
         b.iter(|| v._compute_vc_dimension());
@@ -752,11 +803,13 @@ mod bench {
         b.iter(|| v._compute_vc_dimension_subset());
     }
     #[bench]
+    #[cfg(feature = "naive_dim")]
     fn _compute_vc_dimension_naive_30(b: &mut Bencher) {
         let v = VcDim::with_random_polygon(30, MODE);
         b.iter(|| v._compute_vc_dimension_naive());
     }
     #[bench]
+    #[cfg(feature = "naive_dim")]
     fn _compute_vc_dimension_30(b: &mut Bencher) {
         let v = VcDim::with_random_polygon(30, MODE);
         b.iter(|| v._compute_vc_dimension());
@@ -767,11 +820,13 @@ mod bench {
         b.iter(|| v._compute_vc_dimension_subset());
     }
     #[bench]
+    #[cfg(feature = "naive_dim")]
     fn _compute_vc_dimension_naive_40(b: &mut Bencher) {
         let v = VcDim::with_random_polygon(40, MODE);
         b.iter(|| v._compute_vc_dimension_naive());
     }
     #[bench]
+    #[cfg(feature = "naive_dim")]
     fn _compute_vc_dimension_40(b: &mut Bencher) {
         let v = VcDim::with_random_polygon(40, MODE);
         b.iter(|| v._compute_vc_dimension());

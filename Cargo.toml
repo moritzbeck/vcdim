@@ -10,3 +10,4 @@ polygon = { path = "../polygon" }
 [features]
 bench = []
 print_info = []
+naive_dim = []
