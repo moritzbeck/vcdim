@@ -54,7 +54,7 @@ fn is_sufficiently_small(vcd: &VcDim) -> bool {
         3 => size <=  8, // size ==  8 is the minimum
         4 => size <= 16, // size == 16 is the minimum
         5 => size <= 35, // size == 34 for the currently known smallest polygon
-        6 => size <= 70, // currently no known polygon with VC-Dimension 6; we export the original anyways
+        6 => size <= 78, // size == 78 for the currently known smallest polygon; we export the original anyways
         _ => true        // should not be possible
     }
 }
