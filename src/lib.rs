@@ -276,17 +276,20 @@ impl VcDim {
 
         #[cfg(feature = "print_info")]
         {
-            println!("\n          ======DEBUG=====>");
-            println!("VC-Dimension: {}", max_shattered.len());
+            // print as one csv line
+            // n,d,set_s1,set_s1a,set_s2,set_s2a,set_s3,set_s3a,set_s4,set_s4a,set_s5,set_s5a,set_s6,set_s6a,set,set_a,fraction
             let mut sum0 = 0;
             let mut sum1 = 0;
+            print!("{},{},", self.polygon.size(), max_shattered.len());
             for i in 1..max_shattered.len()+2 {
                 sum0 += subset_counts[i-1];
                 sum1 += Self::_binom(i, self.polygon.size());
-                println!("{: >5}/{: >7} subsets of size {}", subset_counts[i-1], Self::_binom(i, self.polygon.size()), i);
+                print!("{},{},", subset_counts[i-1], Self::_binom(i, self.polygon.size()));
             }
-            println!("Overall savings: {:.1}%", (1.0 - sum0 as f64/sum1 as f64)* 100. );
-            println!("          <=====DEBUG======");
+            for _ in max_shattered.len()+2..7 {
+                print!("{},{},", 0, 0); // None of both methods considers bigger sets
+            }
+            println!("{},{},{}", sum0, sum1, sum0 as f64/sum1 as f64);
         }
 
         let vc = (max_shattered.len() as u8, max_shattered.to_vec()); // copy shattered_subset
