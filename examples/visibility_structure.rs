@@ -4,6 +4,21 @@ use vcdim::*;
 use std::fs;
 use std::collections::HashMap;
 
+macro_rules! println_ignore_err {
+    ($fmt:expr, $($arg:tt)*) => (
+        use std::io::Write;
+        match write!(&mut std::io::stdout(), concat!($fmt, "\n"), $($arg)*) {
+            Ok(_) => {},
+            Err(e) => {
+                if e.kind() == std::io::ErrorKind::BrokenPipe {
+                    ();
+                } else {
+                    panic!("{}", e)
+                }
+            },
+        });
+}
+
 fn visibility_structure(vcd: &VcDim) -> String {
     let pts = vcd.points();
     let sh = vcd.max_shattered_subset();
@@ -21,7 +36,7 @@ fn visibility_structure(vcd: &VcDim) -> String {
 /// Normalizes a `String` representing the visibility structure of a polygon.
 ///
 /// The result is a cyclic permutation of `str` or of its reverse,
-/// starts with a '0' and is the lexicographical greater one of the two possibilities.
+/// starts with a '0' and is the lexicographical smaller one of the two possibilities.
 fn normalize(str: &str) -> String {
     let pos_of_0 = str.bytes().position(|c| { c == b'0' })
         .expect("str is representation of a shattered set, so there must be one point seeing 0 points.");
@@ -29,9 +44,11 @@ fn normalize(str: &str) -> String {
     let str1 = format!("{}{}", p2, p1); // concat p2 and p1
     let (p1, p2) = str.split_at(pos_of_0 + 1);
     let str2 = format!("{}{}", p2, p1).chars().rev().collect::<String>(); // concat p2 and p1 and reverse the String
-    std::cmp::max(str1, str2)
+    std::cmp::min(str1, str2)
 }
 
+/// Computes the visibility string of each polygon
+/// in an ipe-file in the given directory.
 fn main() {
     let mut args = std::env::args().skip(1);
     let mut sort = false;
@@ -63,7 +80,7 @@ fn main() {
         let vcd = VcDim::import_ipe(fs::File::open(path).expect("file not found"), 1f64).expect("File is malformed!");
         let vis_str = normalize(&visibility_structure(&vcd));
         if !sort {
-            println!("{}", vis_str);
+            println_ignore_err!("{}", vis_str);
         } else {
             let counter = vis_structures.entry(vis_str).or_insert(0);
             *counter += 1;
@@ -74,7 +91,7 @@ fn main() {
     vis_counts.sort_by(|a, b| b.1.cmp(a.1));
 
     for v in vis_counts {
-        println!("{}: {}", v.0, v.1);
+        println_ignore_err!("{}: {}", v.0, v.1);
     }
 }
 

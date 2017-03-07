@@ -4,6 +4,15 @@ extern crate vcdim;
 use vcdim::*;
 use std::fs;
 
+/// Checks whether given polygons are x-monotone.
+///
+/// Reads every ipe-file in a given directory.
+/// If it cannot be read/parsed 'X' is printed,
+/// if the contained polygon is x-monotone 'M' is printed
+/// otherwise '.' is printed.
+///
+/// Also prints out the path of one x-monotone polygon
+/// and of one non-x-monotone polygon if present.
 fn main() {
     let mut args = std::env::args().skip(1);
     let in_dir = &if let Some(arg) = args.next() {
@@ -23,7 +32,14 @@ fn main() {
                 if entry.path().extension() == Some(std::ffi::OsStr::new("ipe")) {
                     // Import the file and determine if its polygon is monotone.
                     let p = entry.path();
-                    let vcd = VcDim::import_ipe(fs::File::open(p.clone()).expect(&format!("{} not found", p.display())), 1.).expect("File is malformed!");
+                    let vcd;
+                    match fs::File::open(p.clone()).map_err(|e| e.into()).and_then(|f| { VcDim::import_ipe(f, 1.) }) {
+                        Ok(v) => vcd = v,
+                        Err(_) => {
+                            print!("X");
+                            continue; // skip this file
+                        }
+                    }
                     if vcd.polygon.is_x_monotone() {
                         print!("M");
                         if monotone_example.is_none() {

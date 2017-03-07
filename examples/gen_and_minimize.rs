@@ -59,6 +59,13 @@ fn is_sufficiently_small(vcd: &VcDim) -> bool {
     }
 }
 
+/// Generates random polygons and minimizes them.
+///
+/// For each generated polygon:
+/// First it computes some shattered subsets of maximal size
+/// (i.e. with `d` elements where `d` is the VC-Dimension).
+/// Then for every of these subsets it removes vertices
+/// such that this subset remains shattered.
 fn main() {
     let mut args = std::env::args().skip(1);
     let n = if let Some(n) = args.next() {
@@ -67,6 +74,22 @@ fn main() {
     let count = if let Some(cnt) = args.next() {
         cnt.parse().expect("count must be an positive integer")
     } else { 10 };
+    let default_gen_mode = Mode::QuickStarLike;
+    let gen_mode = if let Some(m) = args.next() {
+        if m.starts_with("--mode=") {
+            match &m[7..] {
+                "2opt" => Mode::TwoOptLike,
+                "quickstar" => Mode::QuickStarLike,
+                _ => {
+                    println!("Generation mode not recognised: {}\nPossible Values: 2opt, quickstar", &m[7..]);
+                    return;
+                }
+            }
+        } else {
+            println!("Unrecognised argument: {}", m);
+            return;
+        }
+    } else { default_gen_mode };
 
     let out_dir = "out";
 
@@ -74,7 +97,6 @@ fn main() {
 
     let mut stdout = std::io::stdout();
 
-    let gen_mode = Mode::QuickStarLike;
     let mut vcd = VcDim::with_random_polygon(n, gen_mode);
 
     for i in 0..count {
@@ -91,7 +113,7 @@ fn main() {
             max_shattered_subsets = vcd.first_n_max_shattered_subsets(10);
             print!("{}", vc_dim);
         } else*/ {
-            max_shattered_subsets = vec![];
+            max_shattered_subsets = vec![]; // don't try to minmize these polygons
             print!("{}", vc_dim);
         }
         for (j, subset) in max_shattered_subsets.iter().enumerate() {

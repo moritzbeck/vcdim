@@ -46,6 +46,7 @@ fn minimize_w_subset(polygon: &Polygon, sh_set: &[Point]) -> VcDim {
     println!("Removed {} vertices. New size: {}", removed_c, vcd.polygon.size());
     vcd
 }
+/// Returns if this polygon is small enough to be considered interesting.
 fn is_sufficiently_small(vcd: &VcDim) -> bool {
     let vc_dim = vcd.vc_dimension();
     let size = vcd.polygon.size();
@@ -59,7 +60,12 @@ fn is_sufficiently_small(vcd: &VcDim) -> bool {
         _ => true        // should not be possible
     }
 }
-
+/// Minimizes a single given polygon.
+///
+/// First it computes every shattered subset of maximal size
+/// (i.e. with `d` elements where `d` is the VC-Dimension).
+/// Then for every of these subsets it removes vertices
+/// such that this subset remains shattered.
 fn main() {
     let mut args = std::env::args().skip(1);
     let file_name = &if let Some(arg) = args.next() {

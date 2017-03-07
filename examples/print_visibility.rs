@@ -22,6 +22,8 @@ fn print_visibility(vcd: &VcDim) {
     }
 }
 
+/// Displays for each vertex of the given polygon
+/// which of the VC-points it can see.
 fn main() {
     let mut args = std::env::args().skip(1);
     let in_file = if let Some(arg) = args.next() {
