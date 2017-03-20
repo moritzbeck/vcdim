@@ -5,7 +5,7 @@ authors = ["local@localhost <local@localhost>"]
 
 [dependencies]
 rand = "0.3"
-polygon = { path = "../polygon" }
+polygon = { git = "https://github.com/moritzbeck/polygon.git" }
 
 [features]
 bench = []
