@@ -5,7 +5,7 @@ use vcdim::*;
 use std::fs;
 
 /// Reads in an ipe-file and prints all shattered subsets of maximal size
-/// (i.e. with `d` elements where `d` is the VC-Dimension).
+/// (i.e. with `d` elements where `d` is the VC-Dimension) of the described polygon.
 fn main() {
     let mut args = std::env::args().skip(1);
     let file_name = &if let Some(arg) = args.next() {

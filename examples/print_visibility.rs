@@ -22,7 +22,7 @@ fn print_visibility(vcd: &VcDim) {
     }
 }
 
-/// Displays for each vertex of the given polygon
+/// Displays for each vertex of the given polygon (in an ipe-file)
 /// which of the VC-points it can see.
 fn main() {
     let mut args = std::env::args().skip(1);

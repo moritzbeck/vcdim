@@ -123,6 +123,7 @@ impl VcDim {
     /// Determines if the given set of `Point`s is shattered.
     ///
     /// Returns false if one of the given `Point`s is not a vertex of `self.polygon`.
+     // TODO: should it panic (or whatever) instead?
     pub fn is_shattered(&self, p: &[Point]) -> bool {
         let mut indices = Vec::with_capacity(p.len());
         for i in 0..p.len() {
@@ -390,9 +391,9 @@ impl VcDim {
     }
     /// Returns all maximum shattered subsets of `self.polygon`.
     ///
-    /// Caches the result of the computation.
-    /// If `self.vc_dimension` or `self.max_shattered_subset` was called before,
-    /// just returns the cached value.
+    /// Caches the first found subset.
+    /// If `self.vc_dimension` or `self.max_shattered_subset` are called afterwards,
+    /// they just return the cached value.
     pub fn all_max_shattered_subsets(&self) -> Vec<Vec<Point>> {
         let subset_indices = self._compute_max_shattered_subsets();
         subset_indices.into_iter().map(|subset| {
@@ -404,9 +405,9 @@ impl VcDim {
     /// This function saves space vs. `self.all_max_shattered_subsets`
     /// as only up to `n` Vector entries must be saved.
     ///
-    /// Caches the result of the computation.
-    /// If `self.vc_dimension` or `self.max_shattered_subset` was called before,
-    /// just returns the cached value.
+    /// Caches the first found subset.
+    /// If `self.vc_dimension` or `self.max_shattered_subset` are called afterwards,
+    /// they just return the cached value.
     pub fn first_n_max_shattered_subsets(&self, n: usize) -> Vec<Vec<Point>> {
         let subset_indices = self._compute_max_shattered_subsets_limit(n);
         subset_indices.into_iter().map(|subset| {
@@ -551,7 +552,7 @@ pub enum IpeImportError { //TODO?: doesn't impl Error for now
     /// The imported file is not valid.
     Malformed,
     /// A shattered subset was specified in the file
-    /// that is not shattered.
+    /// that is in fact not shattered.
     SubsetNotShattered(VcDim)
 }
 impl From<std::io::Error> for IpeImportError {
