@@ -1,3 +1,29 @@
+//! Provides methods for dealing with the Visibility VC-Dimension of a polygon.
+//!
+//! # Examples
+//!
+//! The easiest way to get started is to create a new `VcDim` with a random polygon
+//! and compute its VC-Dimension:
+//!
+//! ```rust
+//! extern crate polygon;
+//! extern crate vcdim;
+//!
+//! use vcdim::*;
+//! use polygon::generate::Mode;
+//!
+//! fn main() {
+//!     // Creates a `VcDim` struct of a polygon with 50 vertices
+//!     // generated using the mode `QuickStarLike`.
+//!     let v = VcDim::with_random_polygon(50, Mode::QuickStarLike);
+//!     // Returns the Visibility VC-Dimension.
+//!     let vc_dim = v.vc_dimension();
+//!
+//!     println!("VC-Dimension: {}", vc_dim);
+//!     assert!(vc_dim < 6);
+//! }
+//! ```
+
 #![warn(missing_docs)]
 #![cfg_attr(feature = "bench", feature(test))]
 
@@ -11,7 +37,7 @@ use polygon::*;
 use std::io::{Read, Write};
 use std::cell::RefCell;
 
-
+/// Wraps a `polygon::Polygon`, provides methods for the Visibility VC-Dimension.
 #[derive(Debug)]
 pub struct VcDim {
     /// The polygon of which the VC dimension is considered.
@@ -299,6 +325,8 @@ impl VcDim {
 
         (max_shattered.len() as u8, max_shattered)
     }
+    // For bot <= 7 this works as expected when top <= 500.
+    // If the numbers are too heigh, (in release mode) this will silently overflow.
     #[cfg(feature = "print_info")]
     fn _binom(bot: usize, top: usize) -> u64 { // types are quite arbitrary
         let mut prod = top as u64;
@@ -647,7 +675,6 @@ impl IpeImport for VcDim {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use polygon::*;
     #[cfg(feature = "naive_dim")]
     use polygon::generate::Mode;
 
