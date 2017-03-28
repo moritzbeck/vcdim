@@ -37,8 +37,11 @@ fn main() {
 
     let mut vcd = VcDim::with_random_polygon(n, gen_mode);
 
-    for _ in 0..count {
-        let _ = vcd.vc_dimension();
+    for i in 0..count {
+        let vc_dim = vcd.vc_dimension();
+        if vc_dim >= 5 {
+            vcd.export_ipe(std::fs::File::create(format!("./vc{}-n{}_{:03}.ipe", vc_dim, n, i)).unwrap(), 1f64).unwrap();
+        }
         vcd.randomize_polygon(gen_mode)
     }
 }
@@ -47,5 +50,8 @@ fn main() {
 fn main() {
     println!("WARNING: This does nothing if the feature `print_info` is disabled.");
     println!("         Please enable this feature.");
+    println!("");
+    println!("Example invocation:");
+    println!("cargo run --release --example compute_savings --features print_info -- 10 5");
     return;
 }
