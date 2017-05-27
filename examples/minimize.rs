@@ -67,17 +67,39 @@ fn is_sufficiently_small(vcd: &VcDim) -> bool {
 /// Then for every of these subsets it removes vertices
 /// such that this subset remains shattered.
 fn main() {
+    let mut use_provided_subset = false;
+    let mut file_name_opt = None;
     let mut args = std::env::args().skip(1);
-    let file_name = &if let Some(arg) = args.next() {
-        arg
+    while let Some(arg) = args.next() {
+        match arg {
+            ref flag if flag == "--use-provided-subset" || flag == "-p" => use_provided_subset = true,
+            file => file_name_opt = Some(file),
+        }
+    }
+    let file_name;
+    if file_name_opt.is_some() {
+        file_name = file_name_opt.unwrap();
     } else {
         println!("Please provide a file name!");
         return;
-    };
+    }
     let out_dir = "out";
-    let vcd = VcDim::import_ipe(fs::File::open(file_name).expect(&format!("{} not found", file_name)), 1.).expect("File is malformed!");
+    //let vcd = VcDim::import_ipe(fs::File::open(&file_name).expect(&format!("{} not found", &file_name)), 1.).expect("File is malformed!");
+    let vcd = match VcDim::import_ipe(fs::File::open(&file_name).expect(&format!("{} not found", &file_name)), 1.) {
+        Ok(v) => v,
+        Err(IpeImportError::SubsetNotShattered(v)) => {
+            println!("Warning: The provided subset is not shattered and thus ignored.");
+            v
+        },
+        _ => panic!("File is malformed!")
+    };
 
-    let max_shattered_subsets = vcd.all_max_shattered_subsets();
+    let max_shattered_subsets = if !use_provided_subset {
+        vcd.all_max_shattered_subsets()
+    } else {
+        println!("Using the provided subset (if found).");
+        vec![vcd.max_shattered_subset()]
+    };
     println!("Found {} max subsets of size {}.", max_shattered_subsets.len(), max_shattered_subsets[0].len());
     for (i, subset) in max_shattered_subsets.iter().enumerate() {
         assert!(vcd.is_shattered(subset));
@@ -85,7 +107,7 @@ fn main() {
         if is_sufficiently_small(&vcd_min) {
             println!("Export");
             let point_c = vcd_min.polygon.size();
-            vcd_min.export_ipe(fs::File::create(format!("{}/{}_{}.n{}.ipe", out_dir, file_name, i, point_c)).unwrap(), 1f64).unwrap();
+            vcd_min.export_ipe(fs::File::create(format!("{}/{}_{}.n{}.ipe", out_dir, file_name.replace("/", "__").replace("\\", "__"), i, point_c)).unwrap(), 1f64).unwrap();
         }
     }
 }

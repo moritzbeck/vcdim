@@ -46,7 +46,7 @@ pub struct VcDim {
     ///
     /// The bool `visible[i][j]` is true iff `points[i]` sees `points[j]`.
     /// This matrix is symmetrical.
-    // TODO: Don't make this pub but implement a accessor function (copy).
+    // TODO: Don't make this pub but implement an accessor function (copy).
     pub visible: Vec<Vec<bool>>,
     // Holds an u8 giving the VC-dimension
     // and a Vec<usize> giving the indices of an maximal shattered subset.
@@ -583,9 +583,27 @@ pub enum IpeImportError { //TODO?: doesn't impl Error for now
     /// that is in fact not shattered.
     SubsetNotShattered(VcDim)
 }
+impl std::fmt::Display for IpeImportError {
+    fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            &IpeImportError::IoError(ref e) => write!(fmt, "An IoError occurred: {}", e),
+            &IpeImportError::Malformed => write!(fmt, "The file  is malformed."),
+            &IpeImportError::SubsetNotShattered(_) => write!(fmt, "The provided subset is not shattered."),
+        }
+    }
+}
 impl From<std::io::Error> for IpeImportError {
     fn from(err: std::io::Error) -> Self {
         IpeImportError::IoError(err)
+    }
+}
+impl std::error::Error for IpeImportError {
+    fn description(&self) -> &str {
+        match self {
+            &IpeImportError::IoError(_) => "IoError",
+            &IpeImportError::Malformed => "File malformed",
+            &IpeImportError::SubsetNotShattered(_) => "Subset not shattered",
+        }
     }
 }
 /// Import something from an [ipe](http://ipe.otfried.org/) file.

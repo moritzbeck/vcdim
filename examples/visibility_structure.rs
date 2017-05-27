@@ -52,10 +52,13 @@ fn normalize(str: &str) -> String {
 fn main() {
     let mut args = std::env::args().skip(1);
     let mut sort = false;
+    let mut show_filenames = false;
     let mut in_dir = "in".into();
     while let Some(arg) = args.next() {
         if arg == "--sort" {
             sort = true;
+        } else if arg == "--show-filenames" {
+            show_filenames = true;
         } else {
             in_dir = arg;
         }
@@ -77,10 +80,14 @@ fn main() {
     }
     let mut vis_structures = HashMap::new();
     for path in ipe_files {
-        let vcd = VcDim::import_ipe(fs::File::open(path).expect("file not found"), 1f64).expect("File is malformed!");
+        let vcd = VcDim::import_ipe(fs::File::open(path.clone()).expect("file not found"), 1f64).expect("File is malformed!");
         let vis_str = normalize(&visibility_structure(&vcd));
         if !sort {
-            println_ignore_err!("{}", vis_str);
+            if show_filenames {
+                println_ignore_err!("{}: {}", path.file_name().unwrap().to_str().unwrap(), vis_str);
+            } else {
+                println_ignore_err!("{}", vis_str);
+            }
         } else {
             let counter = vis_structures.entry(vis_str).or_insert(0);
             *counter += 1;
