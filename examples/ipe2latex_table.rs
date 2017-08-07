@@ -22,7 +22,7 @@ fn print_latex_table(vcd: &VcDim) {
             }
         }).collect::<Vec<usize>>();
     let mut g_counter = 1;
-    for i in 0..vcd.polygon.size() {
+    for i in 0..vcd.polygon().size() {
         print!("{} & ({}, {}) & ", i, pts[i].x, pts[i].y);
         if g.contains(&i) {
             print!("$g_{}$, ", g_counter);
@@ -30,7 +30,7 @@ fn print_latex_table(vcd: &VcDim) {
         }
         let mut seen_by = vec![];
         for j in 0..g.len() {
-            if vcd.visible[i][g[j]] {
+            if vcd.visible()[i][g[j]] {
                 seen_by.push(j+1);
             }
         }

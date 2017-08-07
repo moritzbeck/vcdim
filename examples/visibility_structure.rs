@@ -22,7 +22,7 @@ macro_rules! println_ignore_err {
 fn visibility_structure(vcd: &VcDim) -> String {
     let pts = vcd.points();
     let sh = vcd.max_shattered_subset();
-    vcd.visible.iter().enumerate().map(|(i,v)| {
+    vcd.visible().iter().enumerate().map(|(i,v)| {
         let c = v.iter().enumerate()
             .filter(|&(j, sees_i)| { sh.contains(&pts[j]) && *sees_i })
             .count();

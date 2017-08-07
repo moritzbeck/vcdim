@@ -40,7 +40,7 @@ fn main() {
                             continue; // skip this file
                         }
                     }
-                    if vcd.polygon.is_x_monotone() {
+                    if vcd.polygon().is_x_monotone() {
                         print!("M");
                         if monotone_example.is_none() {
                             monotone_example = Some(p);

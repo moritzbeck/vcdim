@@ -12,9 +12,9 @@ fn print_visibility(vcd: &VcDim) {
                 None
             }
         }).collect::<Vec<usize>>();
-    for i in 0..vcd.polygon.size() {
+    for i in 0..vcd.polygon().size() {
         for j in 0..p.len() {
-            if vcd.visible[i][p[j]] {
+            if vcd.visible()[i][p[j]] {
                 print!("{}", j);
             }
         }

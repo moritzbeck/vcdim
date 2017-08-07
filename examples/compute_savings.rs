@@ -24,6 +24,10 @@ fn main() {
             match &m[7..] {
                 "2opt" => Mode::TwoOptLike,
                 "quickstar" => Mode::QuickStarLike,
+                "xmonotone" => Mode::Xmonotone,
+                "monotone" => Mode::Xmonotone,
+                "xmonotonegap" => Mode::XmonotoneGap,
+                "monotonegap" => Mode::XmonotoneGap,
                 _ => {
                     println!("Generation mode not recognised: {}\nPossible Values: 2opt, quickstar", &m[7..]);
                     return;

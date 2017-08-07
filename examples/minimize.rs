@@ -13,7 +13,7 @@ fn minimize_w_subset(polygon: &Polygon, sh_set: &[Point]) -> VcDim {
     let mut polygon;
 
     assert!(vcd.is_shattered(sh_set));
-    assert!(vcd.polygon.is_simple());
+    assert!(vcd.polygon().is_simple());
 
     let mut rng = rand::thread_rng();
     let mut minimized = false;
@@ -43,13 +43,13 @@ fn minimize_w_subset(polygon: &Polygon, sh_set: &[Point]) -> VcDim {
     }
 
     vcd = VcDim::new(Polygon::from_points(&points));
-    println!("Removed {} vertices. New size: {}", removed_c, vcd.polygon.size());
+    println!("Removed {} vertices. New size: {}", removed_c, vcd.polygon().size());
     vcd
 }
 /// Returns if this polygon is small enough to be considered interesting.
 fn is_sufficiently_small(vcd: &VcDim) -> bool {
     let vc_dim = vcd.vc_dimension();
-    let size = vcd.polygon.size();
+    let size = vcd.polygon().size();
     match vc_dim {
         0 | 1 => false,  // we don't want those boring polygons
         2 => size <=  6, // size ==  6 is the minimum
@@ -103,10 +103,10 @@ fn main() {
     println!("Found {} max subsets of size {}.", max_shattered_subsets.len(), max_shattered_subsets[0].len());
     for (i, subset) in max_shattered_subsets.iter().enumerate() {
         assert!(vcd.is_shattered(subset));
-        let vcd_min = minimize_w_subset(&vcd.polygon, subset);
+        let vcd_min = minimize_w_subset(vcd.polygon(), subset);
         if is_sufficiently_small(&vcd_min) {
             println!("Export");
-            let point_c = vcd_min.polygon.size();
+            let point_c = vcd_min.polygon().size();
             vcd_min.export_ipe(fs::File::create(format!("{}/{}_{}.n{}.ipe", out_dir, file_name.replace("/", "__").replace("\\", "__"), i, point_c)).unwrap(), 1f64).unwrap();
         }
     }

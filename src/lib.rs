@@ -41,13 +41,15 @@ use std::cell::RefCell;
 #[derive(Debug)]
 pub struct VcDim {
     /// The polygon of which the VC dimension is considered.
-    pub polygon: Polygon,
+    ///
+    /// The polygon is not pub because mutating it without resetting the cache
+    /// and recalculation the visibility matrix leads to wrong results.
+    polygon: Polygon,
     /// Visibility matrix of the polygon.
     ///
     /// The bool `visible[i][j]` is true iff `points[i]` sees `points[j]`.
     /// This matrix is symmetrical.
-    // TODO: Don't make this pub but implement an accessor function (copy).
-    pub visible: Vec<Vec<bool>>,
+    visible: Vec<Vec<bool>>,
     // Holds an u8 giving the VC-dimension
     // and a Vec<usize> giving the indices of an maximal shattered subset.
     _vc_dimension_cache: RefCell<Option<(u8, Vec<usize>)>>
@@ -88,8 +90,22 @@ impl VcDim {
     pub fn randomize_polygon(&mut self, mode: generate::Mode) {
         self.polygon.randomize(mode);
 
+        self._reset_caches();
+        self._calculate_visibility();
+    }
+    pub fn trim_coordinates(&mut self, dec_places: i8) {
+        self.polygon.trim_coordinates(dec_places);
+
+        self._reset_caches();
+        self._calculate_visibility();
+    }
+    /// Resets the VC-Dimenson cache and the visibility matrix.
+    ///
+    /// Call it every time self.polygon is mutated!
+    fn _reset_caches(&mut self) {
         // reset the cache
         self._vc_dimension_cache = RefCell::new(None);
+
         // The following lines are needed because of
         // an assumption by `_calculate_visibility`.
         for v in &mut self.visible.iter_mut() {
@@ -97,10 +113,10 @@ impl VcDim {
                 *e = true;
             }
         }
-        self._calculate_visibility();
     }
     fn _calculate_visibility(&mut self) {
         // !!! Assumes that self.visible is intialised with 'true' set for each element !!!
+        // TODO: this function is needlessly slow!
         let points = self.polygon.points();
         for i in 0..points.len() {
             for j in i+2..points.len() {
@@ -113,12 +129,12 @@ impl VcDim {
                     (p1.x + p2.x) / 2f64,
                     (p1.y + p2.y) / 2f64
                 );
-                if !self.polygon.contains(mid) {
+                if !self.polygon.contains(mid) { // this call takes O(n) time
                     self.visible[i][j] = false;
                     self.visible[j][i] = false;
                     continue; // they don't see each other
                 }
-                for l in self.polygon.edges() {
+                for l in self.polygon.edges() { // O(n) iterations
                     if p1 == l.from || p1 == l.to ||
                        p2 == l.from || p2 == l.to {
                             continue;
@@ -150,12 +166,15 @@ impl VcDim {
     ///
     /// Returns false if one of the given `Point`s is not a vertex of `self.polygon`.
      // TODO: should it panic (or whatever) instead?
+     //         don't panic (or rewrite the minimize example)!
+     //         the best possibility is probably to return an Option or Result.
     pub fn is_shattered(&self, p: &[Point]) -> bool {
         let mut indices = Vec::with_capacity(p.len());
         for i in 0..p.len() {
             if let Some(idx) = self.polygon.points().iter().position(|&x| x == p[i]) {
                 indices.push(idx);
             } else {
+               // panic!(format!("Point #{} ({:?}) is not a vertex of the polygon!", i, p[i]));
                 return false;
             }
         }
@@ -163,9 +182,17 @@ impl VcDim {
     }
     /// Returns the points of `self.polygon`.
     ///
-    /// Convenience method equal to `self.polygon.points()`.
+    /// Convenience method equal to `self.polygon().points()`.
+    // TODO: Is this really equal to `self.polygon().points()`?
     pub fn points(&self) -> &[Point] {
         self.polygon.points()
+    }
+    /// Returns the visibility matrix of the polygon.
+    ///
+    /// An entry `self.visible()[i][j]` is `true` iff
+    /// vertices number i and j see each other.
+    pub fn visible(&self) -> &Vec<Vec<bool>> {
+        &self.visible
     }
     #[cfg(feature = "naive_dim")]
     fn _edge_tuples(&self, size: usize) -> SubsetIter {
@@ -465,6 +492,23 @@ impl VcDim {
         #[cfg(feature = "naive_dim")]
         let (_, subset) = self._compute_vc_dimension_naive();
         subset.into_iter().map(|i| self.polygon.points()[i]).collect()
+    }
+    /// Tests if this polygon is among the smallest (low number of vertices)
+    /// known polygons with its VC-Dimension.
+    ///
+    /// For VC-Dimension `d < 6` this returns if this is a minimum polygon.
+    pub fn is_small(&self) -> bool {
+        let n = self.polygon.size();
+        match self.vc_dimension() {
+            0 => n == 3,
+            1 => n == 4,
+            2 => n == 6,
+            3 => n == 8,
+            4 => n == 16,
+            5 => n == 32,
+            6 => true,
+            _ => true,
+        }
     }
 }
 #[cfg(feature = "naive_dim")]
