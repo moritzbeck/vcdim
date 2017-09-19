@@ -20,7 +20,7 @@
 //!     let vc_dim = v.vc_dimension();
 //!
 //!     println!("VC-Dimension: {}", vc_dim);
-//!     assert!(vc_dim < 6);
+//!     assert!(vc_dim < 7);
 //! }
 //! ```
 
@@ -93,6 +93,7 @@ impl VcDim {
         self._reset_caches();
         self._calculate_visibility();
     }
+    /// Trims the coordinates of all points of the polygon.
     pub fn trim_coordinates(&mut self, dec_places: i8) {
         self.polygon.trim_coordinates(dec_places);
 
@@ -180,7 +181,246 @@ impl VcDim {
         }
         self._is_shattered(&indices)
     }
-    /// Returns the points of `self.polygon`.
+    /// Computes the region (a polygon) that is visible from the vertex `v`.
+    ///
+    /// # Panics
+    /// Panics if `v` is not a vertex of `self.polygon()`.
+    pub fn visibility_region_of(&self, v: Point ) -> Polygon {
+        // Using the method described in  chapter 8 of "Art Gallery Theorems and Algorithms".
+        // http://cs.smith.edu/~jorourke/books/ArtGalleryTheorems/art.html
+        #[derive(Debug, PartialEq, Eq)]
+        enum State { Push, Pop, Wait, Stop };
+        impl State {
+            // In the paper ("Visibility of a Simple Polygon from a Point" by Joe, Simpson)
+            // v: z (vision point) This is always equal to points[0]
+            // points: v, n (vertices + length)
+            // bounding_vertices: s, t (stack of currently visible points + length)
+            // idx: i
+            // ccw: ccw
+            // w: w as a pair of a bool and a point
+            fn push(v: Point, points: &[Point], bounding_vertices: &mut Vec<(Point, Angle)>, idx: usize, ccw: &mut bool, w: &mut (bool, Point), angles: &[Angle]) -> (State, usize) {
+                let mut i = idx;
+                if angles[i+1] <= Angle::full_turn() { // TODO falls i == n-1, so läuft der Index über
+                    i += 1;
+                    bounding_vertices.push((points[i], angles[i]));
+                    if i == points.len()-1 { // TODO hmm... the paper has points[n] == points[0]
+                        return (State::Stop, i); // the number is irrelevant
+                    } else if angles[i+1] < angles[i] && Angle::is_right_turn(&points[i-1], &points[i], &points[i+1]) {
+                        *ccw = true;
+                        // add the direction of zv_i to v_i
+                        *w = (true, points[i] + points[i] - v);
+                        return (State::Wait, i);
+                    } else if angles[i+1] < angles[i] && Angle::is_left_turn(&points[i-1], &points[i], &points[i+1]) {
+                        return (State::Pop, i);
+                    }
+                } else {
+                    if bounding_vertices.last().unwrap().1 < Angle::full_turn() {
+                        // TODO push intersection of v_{i}v_{i+1} and line zv_0
+                        let s_t = Line::new(points[i], points[i+1]).line_intersection_with(&Line::new(v, points[1])).expect("should intersect");
+                        bounding_vertices.push((s_t, Angle::full_turn()));
+                    }
+
+                    *ccw = false;
+                    *w = (false, points[1]); // TODO
+                    return (State::Wait, i);
+                }
+                (State::Push, i)
+            }
+            fn pop(v: Point, points: &[Point], bounding_vertices: &mut Vec<(Point, Angle)>, idx: usize, ccw: &mut bool, w: &mut (bool, Point), angles: &[Angle]) -> (State, usize) {
+                let mut i = idx;
+                let indices = (0..bounding_vertices.len()).rev().skip(1);
+                let mut j = 0; // init as zero because the compiler can't prove that this always gets initialized by the loop
+                for k in indices {
+                    // scan backwards until one of two conditions is met
+                    let angle_sj = bounding_vertices[k].1;
+                    let angle_sj1 = bounding_vertices[k+1].1;
+                    if angle_sj < angles[i+1] && angles[i+1] <= angle_sj1 ||
+                        angles[i+1] <= angle_sj && angle_sj == angle_sj1
+                        && Line::new(points[i], points[i+1]).intersects(&Line::new(bounding_vertices[k].0, bounding_vertices[k+1].0))
+                        && points[i] != bounding_vertices[k+1].0 { // this last condition is a special case not considered in the paper
+                        j = k;
+                        break;
+                    }
+                }
+                let j = j;
+                if bounding_vertices[j].1 < angles[i+1] {
+                    i += 1;
+                    bounding_vertices.truncate(j+2); // retain all vertices until index j+1
+                    let l1 = Line::new(bounding_vertices[j].0, bounding_vertices[j+1].0);
+                    let l2 = Line::new(v, points[i]);
+                    let intersection = l1.line_intersection_with(&l2).expect("the lines intersect");
+                    bounding_vertices.pop();
+                    bounding_vertices.push((intersection, angles[i]));
+                    bounding_vertices.push((points[i], angles[i]));
+
+                    if i == points.len()-1 { // TODO hmm... the paper has points[n] == points[0]
+                        (State::Stop, i) // the number is irrelevant
+                    } else if angles[i+1] >= angles[i] && Angle::is_right_turn(&points[i-1], &points[i], &points[i+1]) {
+                        (State::Push, i)
+                    } else if angles[i+1] > angles[i] && Angle::is_left_turn(&points[i-1], &points[i], &points[i+1]) {
+                        *ccw = false;
+                        *w = (false, points[i]);
+                        bounding_vertices.pop();
+                        (State::Wait, i)
+                    } else {
+                        (State::Pop, i)
+                    }
+                } else {
+                    if angles[i+1] == bounding_vertices[j].1 && angles[i+2] > angles[i+1] && Angle::is_right_turn(&points[i], &points[i+1], &points[i+2]) {
+                        i += 1;
+                        bounding_vertices.push((points[i], angles[i]));
+                        (State::Push, i)
+                    } else {
+                        *ccw = true;
+                        let l1 = Line::new(points[i], points[i+1]);
+                        let l2 = Line::new(bounding_vertices[j].0, bounding_vertices[j+1].0);
+                        bounding_vertices.truncate(j+1);
+                        *w = (false, l1.line_intersection_with(&l2).expect("the line segments intersect"));
+                        (State::Wait, i)
+                    }
+                }
+            }
+            fn wait(v: Point, points: &[Point], bounding_vertices: &mut Vec<(Point, Angle)>, idx: usize, ccw: &mut bool, w: &mut (bool, Point), angles: &[Angle]) -> (State, usize) {
+                let i = idx + 1;
+                let tuple_st = bounding_vertices.last().expect("the stack is not empty").clone(); // TODO remove this clone
+                        // the clone is cheap (as it's a `Point`) but it only neccessary because the borrow checker isn't smart enough
+                let s_t = tuple_st.0;
+                let angle_st = tuple_st.1;
+                if points.len() == i+1 {
+                    //eprintln!("{} {}", w.0, ccw);
+                    //eprintln!("{:?}", l1);
+                    //eprintln!("{:?}", l2);
+                    return (State::Stop, i);
+                }
+                let l1 = Line::new(points[i], points[i+1]);
+                let l2 = Line::new(s_t, w.1);
+
+                if *ccw && angles[i+1] > angle_st && angle_st > angles[i] {
+                    if w.0 { // if we need to check intersection with a ray
+                        if l1.intersects_ray(&l2) {
+                            let intersection = l1.line_intersection_with(&l2).expect("the lines intersect");
+                            bounding_vertices.push((intersection, angle_st));
+                            return (State::Push, i);
+                        }
+                    } else {
+                        if l1.intersects(&l2) {
+                            let intersection = l1.line_intersection_with(&l2).expect("the lines intersect");
+                            bounding_vertices.push((intersection, angle_st));
+                            return (State::Push, i);
+                        }
+                    }
+                } else if !*ccw && angles[i+1] <= angle_st && angle_st < angles[i] {
+                    if w.0 { // if we need to check intersection with a ray
+                        if l1.intersects_ray(&l2) {
+                            return (State::Pop, i);
+                        }
+                    } else {
+                        if l1.intersects(&l2) {
+                            return (State::Pop, i);
+                        }
+                    }
+                }
+                (State::Wait, i)
+            }
+        }
+
+        // First prepare the polygon such that the points
+        // are in counter clockwise order and start with `v`.
+        let mut polygon = self.polygon().clone();
+        if !polygon.is_ccw() {
+            polygon.points_mut().reverse();
+        }
+        assert!(polygon.is_ccw());
+
+        let mut points = polygon.points_mut();
+        let n = points.len();
+        let mut idx;
+        if let Some(start_idx) = points.iter().position(|x| *x == v) {
+            idx = start_idx;
+        } else {
+           panic!(format!("`v` ({:?}) should be a vertex of the polygon!", v));
+        }
+        VcDim::slice_rotate(points, idx);
+        // Now we can visit the vertices starting at `v` in ccw order
+        // by just iterating over `points`.
+
+        // compute angles for each point
+        // angles[i] is the accumulated angle of points[i]
+        let mut angles = Vec::with_capacity(n);
+        angles.push(Angle::zero()); // angle for `v`
+        angles.push(Angle::zero()); // angle for the neighbour of `v` in ccw order
+        let angles_2 = points[1..].windows(2).map(|e| {
+            Angle::from_points(&e[0], &v, &e[1])
+        });
+        angles.extend(angles_2);
+        // Now these are still relative angles (from points[i-1] to points[i]).
+        // We need to accumulate them.
+        let mut sum = Angle::zero();
+        let angles = angles.into_iter().map(|a| {sum = sum + a; sum})
+            .collect::<Vec<_>>();
+
+        // The stack that tentativly holds all points that belong
+        // to the visibility polygon along with their angles.
+        let mut bounding_vertices = Vec::with_capacity(n);
+        bounding_vertices.push((points[0], Angle::zero()));
+        bounding_vertices.push((points[1], Angle::zero()));
+
+        //let mut p_idx = points[idx];
+        idx = 1;
+        let mut state = State::Push;
+        //let mut angle = angles[idx];
+        //assert_eq!(angle, Angle::zero());
+        let mut ccw = true;
+        // tuple, where the `Point` gives the direction from s_t (bounding_vertices.last())
+        // and the bool determines whether this is a ray (`true`) or a line segment (`false`).
+        let mut w = (false, Point::origin());
+
+        if angles[2] < angles[1] {
+            w = (true, points[1] + (points[1] - points[0]));
+            state = State::Wait;
+        }
+
+
+        loop {
+            //eprintln!("{:?}\t{:?}", state, points[idx]);
+            let s = match state {
+                State::Push => State::push(v, points, &mut bounding_vertices, idx, &mut ccw, &mut w, &angles),
+                State::Pop => State::pop(v, points, &mut bounding_vertices, idx, &mut ccw, &mut w, &angles),
+                State::Wait => State::wait(v, points, &mut bounding_vertices, idx, &mut ccw, &mut w, &angles),
+                State::Stop => break,
+            };
+            state = s.0;
+            idx = s.1;
+        }
+        //eprintln!("---");
+        // points[end_idx] is a neighbour of v
+        //bounding_vertices.push((points[end_idx], Angle::from_points(...));
+
+        Polygon::from_points(&bounding_vertices.iter().map(|p| p.0).collect::<Vec<_>>())
+    }
+    fn slice_rotate<T>(slice: &mut [T], mid: usize) {
+        // TODO: when out of nightly: just use
+        // slice.rotate(mid);
+        let len = slice.len();
+        slice.reverse();
+        let (mut a, mut b) = slice.split_at_mut(len - mid);
+        a.reverse();
+        b.reverse();
+    }
+    /// Returns a reference to the polygon.
+    pub fn polygon(&self) -> &Polygon {
+        &self.polygon
+    }
+    /// Updates the wrapped polygon with the given one.
+    pub fn set_polygon(&mut self, p: Polygon) {
+        assert!(p.size() >= 3);
+        assert!(p.is_simple());
+        self.polygon = p;
+
+        self._reset_caches();
+        self._calculate_visibility();
+    }
+    /// Returns the points of `self.polygon()`.
     ///
     /// Convenience method equal to `self.polygon().points()`.
     // TODO: Is this really equal to `self.polygon().points()`?
@@ -493,7 +733,7 @@ impl VcDim {
         let (_, subset) = self._compute_vc_dimension_naive();
         subset.into_iter().map(|i| self.polygon.points()[i]).collect()
     }
-    /// Tests if this polygon is among the smallest (low number of vertices)
+    /// Tests if this polygon is among the smallest (i.e. low number of vertices)
     /// known polygons with its VC-Dimension.
     ///
     /// For VC-Dimension `d < 6` this returns if this is a minimum polygon.

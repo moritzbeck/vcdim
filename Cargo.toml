@@ -7,6 +7,9 @@ authors = ["local@localhost <local@localhost>"]
 rand = "0.3"
 polygon = { git = "https://github.com/moritzbeck/polygon.git" }
 
+[dev-dependencies]
+quick-xml = "0.9.*"
+
 [features]
 bench = []
 print_info = []
