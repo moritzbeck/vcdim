@@ -33,7 +33,23 @@ fn visibility_structure(vcd: &VcDim) -> String {
         }
     }).collect::<String>()
 }
-/// Normalizes a `String` representing the visibility structure of a polygon.
+fn visibility_structure_simplified(vcd: &VcDim) -> String {
+    let pts = vcd.points();
+    let sh = vcd.max_shattered_subset();
+    let mut chars = vcd.visible().iter().enumerate().filter_map(|(i,v)| {
+        let c = v.iter().enumerate()
+            .filter(|&(j, sees_i)| { sh.contains(&pts[j]) && *sees_i })
+            .count();
+        if sh.contains(&pts[i]) {
+            Some((96 + c as u8) as char) // 1 -> 'a', 2 -> 'b', etc.
+        } else {
+            None
+        }
+    }).collect::<Vec<char>>();
+    chars.sort();
+    chars.into_iter().collect::<String>()
+}
+/// Normalizes a `String` representing the visibility structure of a (minimum) polygon.
 ///
 /// The result is a cyclic permutation of `str` or of its reverse,
 /// starts with a '0' and is the lexicographical smaller one of the two possibilities.
@@ -53,12 +69,15 @@ fn main() {
     let mut args = std::env::args().skip(1);
     let mut sort = false;
     let mut show_filenames = false;
+    let mut simplified = false;
     let mut in_dir = "in".into();
     while let Some(arg) = args.next() {
         if arg == "--sort" {
             sort = true;
         } else if arg == "--show-filenames" {
             show_filenames = true;
+        } else if arg == "--simplified" {
+            simplified = true;
         } else {
             in_dir = arg;
         }
@@ -81,7 +100,11 @@ fn main() {
     let mut vis_structures = HashMap::new();
     for path in ipe_files {
         let vcd = VcDim::import_ipe(fs::File::open(path.clone()).expect("file not found"), 1f64).expect("File is malformed!");
-        let vis_str = normalize(&visibility_structure(&vcd));
+        let vis_str = if simplified {
+            visibility_structure_simplified(&vcd)
+        } else {
+            normalize(&visibility_structure(&vcd))
+        };
         if !sort {
             if show_filenames {
                 println_ignore_err!("{}: {}", path.file_name().unwrap().to_str().unwrap(), vis_str);

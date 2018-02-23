@@ -14,13 +14,16 @@ use std::fs;
 /// Also prints out the path of one x-monotone polygon
 /// and of one non-x-monotone polygon if present.
 fn main() {
-    let mut args = std::env::args().skip(1);
-    let in_dir = &if let Some(arg) = args.next() {
-        arg
-    } else {
-        println!("Please provide a input directory!");
-        return;
-    };
+    let args = std::env::args().skip(1);
+    let mut in_dir = "in".to_owned();
+    let mut verbose = false;
+    for arg in args {
+        if arg == "-v" || arg == "--verbose" {
+	        verbose = true;
+        } else {
+	        in_dir = arg;
+        }
+    }
 
     let mut monotone_example = None;
     let mut non_monotone_example = None;
@@ -41,15 +44,23 @@ fn main() {
                         }
                     }
                     if vcd.polygon().is_x_monotone() {
-                        print!("M");
-                        if monotone_example.is_none() {
-                            monotone_example = Some(p);
-                        }
+	                    if verbose {
+	                        println!("monotone: {}", p.display());
+	                    } else {
+                            print!("M");
+                            if monotone_example.is_none() {
+                                monotone_example = Some(p);
+                            }
+		                }
                     } else {
-                        print!(".");
-                        if non_monotone_example.is_none() {
-                            non_monotone_example = Some(p);
-                        }
+                        if verbose {
+                            println!("not monotone: {}", p.display());
+                        } else {
+                            print!(".");
+                            if non_monotone_example.is_none() {
+                                non_monotone_example = Some(p);
+                            }
+		                }
                     }
                 }
             }}}
@@ -57,14 +68,16 @@ fn main() {
     }
     println!("\n");
 
-    if let Some(f) = monotone_example {
-        println!("This file contains a x-monotone polygon: {}", f.display())
-    } else {
-        println!("Found no x-monotone polygon.");
-    }
-    if let Some(f) = non_monotone_example {
-        println!("This file contains a polygon that is not x-monotone: {}", f.display())
-    } else {
-        println!("All files contain x-monotone polygons.");
-    }
+	if !verbose {
+		if let Some(f) = monotone_example {
+		    println!("This file contains a x-monotone polygon: {}", f.display())
+		} else {
+		    println!("Found no x-monotone polygon.");
+		}
+		if let Some(f) = non_monotone_example {
+		    println!("This file contains a polygon that is not x-monotone: {}", f.display())
+		} else {
+		    println!("All files contain x-monotone polygons.");
+		}
+	}
 }
