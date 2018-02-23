@@ -20,13 +20,17 @@ macro_rules! println_ignore_err {
 }
 
 fn visibility_structure(vcd: &VcDim) -> String {
-    let pts = vcd.points();
     let sh = vcd.max_shattered_subset();
+    let sh_index = sh.iter().map(|v|
+            vcd.points().iter()
+                .position(|p| p == v)
+                .expect("It's a point of the polygon")
+        ).collect::<Vec<_>>();
     vcd.visible().iter().enumerate().map(|(i,v)| {
         let c = v.iter().enumerate()
-            .filter(|&(j, sees_i)| { sh.contains(&pts[j]) && *sees_i })
+            .filter(|&(j, sees_i)| { sh_index.contains(&j) && *sees_i })
             .count();
-        if sh.contains(&pts[i]) {
+        if sh_index.contains(&i) {
             (96 + c as u8) as char // 1 -> 'a', 2 -> 'b', etc.
         } else {
             (48 + c as u8) as char // 0 -> '0', 1 -> '1', etc.
@@ -34,18 +38,19 @@ fn visibility_structure(vcd: &VcDim) -> String {
     }).collect::<String>()
 }
 fn visibility_structure_simplified(vcd: &VcDim) -> String {
-    let pts = vcd.points();
     let sh = vcd.max_shattered_subset();
-    let mut chars = vcd.visible().iter().enumerate().filter_map(|(i,v)| {
-        let c = v.iter().enumerate()
-            .filter(|&(j, sees_i)| { sh.contains(&pts[j]) && *sees_i })
-            .count();
-        if sh.contains(&pts[i]) {
-            Some((96 + c as u8) as char) // 1 -> 'a', 2 -> 'b', etc.
-        } else {
-            None
-        }
-    }).collect::<Vec<char>>();
+    let sh_index = sh.iter().map(|v|
+            vcd.points().iter()
+                .position(|p| p == v)
+                .expect("It's a point of the polygon")
+        ).collect::<Vec<_>>();
+    let mut chars = sh_index.iter()
+        .map(|&i| {
+            let c = sh_index.iter()
+                .filter(|&&j| vcd.visible()[i][j])
+                .count();
+            (96 + c as u8) as char
+        }).collect::<Vec<char>>();
     chars.sort();
     chars.into_iter().collect::<String>()
 }
