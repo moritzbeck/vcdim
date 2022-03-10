@@ -189,7 +189,7 @@ impl VcDim {
         // Using the method described in  chapter 8 of "Art Gallery Theorems and Algorithms".
         // http://cs.smith.edu/~jorourke/books/ArtGalleryTheorems/art.html
         #[derive(Debug, PartialEq, Eq)]
-        enum State { Push, Pop, Wait, Stop };
+        enum State { Push, Pop, Wait, Stop }
         impl State {
             // In the paper ("Visibility of a Simple Polygon from a Point" by Joe, Simpson)
             // v: z (vision point) This is always equal to points[0]
@@ -274,13 +274,17 @@ impl VcDim {
                         *ccw = true;
                         let l1 = Line::new(points[i], points[i+1]);
                         let l2 = Line::new(bounding_vertices[j].0, bounding_vertices[j+1].0);
+                        if l1.slope() == Slope::Vertical && l2.slope() == Slope::Vertical {
+                            eprintln!("{:?}\n{:?}", l1, l2);
+                            eprintln!("They intersect: {}\n---", l1.intersects(&l2));
+                        }
                         bounding_vertices.truncate(j+1);
                         *w = (false, l1.line_intersection_with(&l2).expect("the line segments intersect"));
                         (State::Wait, i)
                     }
                 }
             }
-            fn wait(v: Point, points: &[Point], bounding_vertices: &mut Vec<(Point, Angle)>, idx: usize, ccw: &mut bool, w: &mut (bool, Point), angles: &[Angle]) -> (State, usize) {
+            fn wait(_v: Point, points: &[Point], bounding_vertices: &mut Vec<(Point, Angle)>, idx: usize, ccw: &mut bool, w: &mut (bool, Point), angles: &[Angle]) -> (State, usize) {
                 let i = idx + 1;
                 let tuple_st = bounding_vertices.last().expect("the stack is not empty").clone(); // TODO remove this clone
                         // the clone is cheap (as it's a `Point`) but it only neccessary because the borrow checker isn't smart enough
@@ -332,13 +336,13 @@ impl VcDim {
         }
         assert!(polygon.is_ccw());
 
-        let mut points = polygon.points_mut();
+        let points = polygon.points_mut();
         let n = points.len();
         let mut idx;
         if let Some(start_idx) = points.iter().position(|x| *x == v) {
             idx = start_idx;
         } else {
-           panic!(format!("`v` ({:?}) should be a vertex of the polygon!", v));
+           panic!("`v` ({:?}) should be a vertex of the polygon!", v);
         }
         VcDim::slice_rotate(points, idx);
         // Now we can visit the vertices starting at `v` in ccw order
@@ -403,7 +407,7 @@ impl VcDim {
         // slice.rotate(mid);
         let len = slice.len();
         slice.reverse();
-        let (mut a, mut b) = slice.split_at_mut(len - mid);
+        let (a, b) = slice.split_at_mut(len - mid);
         a.reverse();
         b.reverse();
     }
@@ -816,7 +820,7 @@ impl IpeExport for VcDim {
     type Error = ();
 
     fn export_ipe<W: Write>(&self, mut w: W, scale: f64) -> std::io::Result<()> {
-        try!(write!(w, r#"<ipe version="70206" creator="libvcdim">
+        write!(w, r#"<ipe version="70206" creator="libvcdim">
 <ipestyle name="vc-poly">
 <symbol name="vc-point" transformations="translations">
 <path fill="blue">-1.8 -1.8 m 1.8 -1.8 l 1.8 1.8 l -1.8 1.8 l h</path>
@@ -834,23 +838,23 @@ impl IpeExport for VcDim {
 <dashstyle name="dashed" value="[3 3]0"/>
 </ipestyle>
 <page>
-<path>"#));
+<path>"#)?;
         let points = self.polygon.points();
         if points.len() > 0 {
-            try!(write!(w, "{} {} m ", points[0].x * scale, points[0].y * scale));
+            write!(w, "{} {} m ", points[0].x * scale, points[0].y * scale)?;
         }
         for p in points.iter().skip(1) {
-            try!(write!(w, "{} {} l ", p.x * scale, p.y * scale));
+            write!(w, "{} {} l ", p.x * scale, p.y * scale)?;
         }
-        try!(write!(w, "h</path>\n"));
+        write!(w, "h</path>\n")?;
         for p in self.max_shattered_subset() {
-            try!(write!(w, r#"<use name="vc-point" pos="{} {}"/>"#, p.x * scale, p.y * scale));
+            write!(w, r#"<use name="vc-point" pos="{} {}"/>"#, p.x * scale, p.y * scale)?;
         }
         for (i, p) in points.iter().enumerate() {
             if self.max_shattered_subset().contains(p) {
-                try!(write!(w, r#"<text pos="{} {}" size="6" stroke="blue" matrix="1 0 0 1 2 0" valign="center">{}</text>"#, p.x * scale, p.y * scale, i));
+                write!(w, r#"<text pos="{} {}" size="6" stroke="blue" matrix="1 0 0 1 2 0" valign="center">{}</text>"#, p.x * scale, p.y * scale, i)?;
             } else {
-                try!(write!(w, r#"<text pos="{} {}" size="3" valign="center">{}</text>"#, p.x * scale, p.y * scale, i));
+                write!(w, r#"<text pos="{} {}" size="3" valign="center">{}</text>"#, p.x * scale, p.y * scale, i)?;
             }
         }
         write!(w, "</page>\n</ipe>")
@@ -907,7 +911,7 @@ impl IpeImport for VcDim {
     fn import_ipe<R: Read>(mut r: R, scale: f64) -> Result<VcDim, IpeImportError> {
         // TODO: do parsing with regex.
         let mut file_contents = String::new();
-        try!(r.read_to_string(&mut file_contents));
+        r.read_to_string(&mut file_contents)?;
         let vcd;
         // TODO: rewrite using Option::and_then()
         if let Some(idx_start) = file_contents.find("<path>") { //TODO: make more robust by allowing attrs on path element
